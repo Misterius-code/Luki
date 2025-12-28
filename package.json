@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "create-admin": "node create-admin.js",
-    "init-db": "node init-mongodb.js"
+    "init-db": "node init-mongodb.js",
+    "check-db": "node check-db-status.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
