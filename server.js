@@ -24,9 +24,13 @@ let db;
 
 async function connectToDatabase() {
 	try {
+		if (client) {
+			await client.close();
+		}
 		client = new MongoClient(MONGODB_URI);
 		await client.connect();
 		db = client.db(DB_NAME);
+		isDbConnected = true;
 		console.log('✅ Connected to MongoDB database:', DB_NAME);
 		
 		// Create indexes
@@ -37,14 +41,54 @@ async function connectToDatabase() {
 		await db.collection('zamowienia_archiwum').createIndex({ archivedAt: 1 });
 		
 		console.log('✅ Database indexes created');
+		return true;
 	} catch (err) {
+		isDbConnected = false;
+		db = null;
 		console.error('❌ MongoDB connection error:', err.message);
-		process.exit(1);
+		// Don't exit immediately - allow server to start and show error on requests
+		console.error('⚠️  Server will start but database operations will fail until connection is established');
+		return false;
 	}
 }
 
-// Check connection on startup
-connectToDatabase();
+// Database connection state
+let isDbConnected = false;
+let connectionRetries = 0;
+const MAX_RETRIES = 10;
+const RETRY_DELAY = 5000; // 5 seconds
+
+// Retry connection function
+async function connectToDatabaseWithRetry() {
+	while (connectionRetries < MAX_RETRIES && !isDbConnected) {
+		try {
+			await connectToDatabase();
+			if (isDbConnected) {
+				connectionRetries = 0; // Reset on success
+				return;
+			}
+		} catch (err) {
+			connectionRetries++;
+			if (connectionRetries < MAX_RETRIES) {
+				console.log(`⏳ Retrying database connection (${connectionRetries}/${MAX_RETRIES})...`);
+				await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+			} else {
+				console.error('❌ Max retries reached. Database connection failed.');
+			}
+		}
+	}
+}
+
+// Helper function to ensure database is connected
+function ensureDbConnected() {
+	if (!db || !isDbConnected) {
+		throw new Error('Database not connected. Please check MongoDB connection.');
+	}
+	return db;
+}
+
+// Start connection with retry
+connectToDatabaseWithRetry();
 
 // Password hashing utilities
 function hashPassword(password) {
@@ -187,6 +231,13 @@ const server = http.createServer((req, res) => {
 		req.on('data', chunk => { body += chunk; });
 		req.on('end', async () => {
 			try {
+				// Check if database is connected
+				if (!db || !isDbConnected) {
+					res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Baza danych nie jest dostępna. Sprawdź połączenie z MongoDB.' }));
+					return;
+				}
+
 				const payload = body ? JSON.parse(body) : {};
 				const { username, password } = payload;
 
