@@ -433,22 +433,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="nawoj-jednostka">Nawój na wałek (jaki/ile)</label>
-                        <div class="checkbox-group">
-                            <div class="checkbox-option">
-                                <input type="checkbox" id="nawoj-kg" name="Nawój jednostka" value="KG">
-                                <label for="nawoj-kg">KG</label>
-                            </div>
-                            <div class="checkbox-option">
-                                <input type="checkbox" id="nawoj-mb" name="Nawój jednostka" value="MB">
-                                <label for="nawoj-mb">MB</label>
-                            </div>
-                            <div class="checkbox-option">
-                                <input type="checkbox" id="nawoj-other" name="Nawój jednostka" value="Other">
-                                <label for="nawoj-other">Inne</label>
-                            </div>
-                        </div>
-                        <input type="text" id="nawoj-wartosc" name="Nawój wartość" placeholder="Podaj wartość" style="margin-top: 8px;">
+                        <label for="nawoj-wartosc">Nawój na wałek (jaki/ile)</label>
+                        <input type="text" id="nawoj-wartosc" name="Nawój wartość" placeholder="np. KG 100, MB 50, lub inne">
                     </div>
 
                     <div class="form-group">
@@ -727,8 +713,8 @@
 
                 // Combine all data (but skip fields that will be handled specially)
                 for (const [key, value] of formData.entries()) {
-                    // Skip "Ilość", "Nawój wartość", and "Pakowanie inne" - they will be combined with checkbox values
-                    if (key !== 'Ilość' && key !== 'Nawój wartość' && key !== 'Pakowanie inne' && value.trim()) {
+                    // Skip "Ilość" and "Pakowanie inne" - they will be combined with checkbox values
+                    if (key !== 'Ilość' && key !== 'Pakowanie inne' && value.trim()) {
                         data[key] = value.trim();
                     }
                 }
@@ -761,30 +747,7 @@
                 // Remove "Ilość jednostka" from checkboxes to avoid duplication
                 delete checkboxes['Ilość jednostka'];
 
-                // Handle "Nawój jednostka" + "Nawój wartość" - combine checkbox values with text field
-                const nawojJednostka = checkboxes['Nawój jednostka'] || [];
-                const nawojWartosc = formData.get('Nawój wartość')?.trim() || '';
-                if (nawojJednostka.length > 0 || nawojWartosc) {
-                    const parts = [];
-                    // Add checkbox values (excluding "Other" if it's selected)
-                    const nawojJednostkaFiltered = nawojJednostka.filter(v => v !== 'Other');
-                    if (nawojJednostkaFiltered.length > 0) {
-                        parts.push(...nawojJednostkaFiltered);
-                    }
-                    // Add text field value if provided
-                    if (nawojWartosc) {
-                        parts.push(nawojWartosc);
-                    }
-                    // If "Other" is checked but no text, add "Other"
-                    if (nawojJednostka.includes('Other') && !nawojWartosc) {
-                        parts.push('Other');
-                    }
-                    if (parts.length > 0) {
-                        data['Nawój wartość'] = parts.join(', ');
-                    }
-                }
-                // Remove "Nawój jednostka" from checkboxes to avoid duplication
-                delete checkboxes['Nawój jednostka'];
+                // "Nawój wartość" is now a single field, already handled in the loop above
 
                 // Handle "Pakowanie" - combine checkbox values with text field
                 const pakowanie = checkboxes['Pakowanie'] || [];
