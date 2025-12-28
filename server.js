@@ -8,11 +8,35 @@ const url = require('url');
 const crypto = require('crypto');
 const { MongoClient, ObjectId } = require('mongodb');
 
-const PORT = process.env.PORT || 3000;
+// Validate and set PORT
+let PORT = parseInt(process.env.PORT || '3000', 10);
+// Prevent using MongoDB's default port for the web server
+if (PORT === 27017) {
+	console.warn('⚠️  PORT is set to 27017 (MongoDB port). Changing to 3000.');
+	PORT = 3000;
+}
 
 // MongoDB connection configuration
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+// Support both MONGODB_URI and MONGO_URL (common in different deployment platforms)
+let MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'syn_prezesa';
+
+// Check if connection string contains unresolved template variables
+if (MONGODB_URI.includes('${{') || MONGODB_URI.includes('${')) {
+	console.error('❌ ERROR: MongoDB connection string contains unresolved template variables!');
+	console.error('   Found:', MONGODB_URI);
+	console.error('   This usually means the environment variable was not properly set.');
+	console.error('   Please check your .env file or environment variables.');
+	console.error('   Falling back to localhost...');
+	MONGODB_URI = 'mongodb://localhost:27017';
+}
+
+// Log connection info (without exposing credentials)
+const uriForLogging = MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
+console.log('📊 Configuration:');
+console.log('   PORT:', PORT);
+console.log('   MongoDB URI:', uriForLogging);
+console.log('   Database:', DB_NAME);
 
 // Session management (in-memory for simplicity)
 const sessions = new Map(); // sessionToken -> { username, expires }
