@@ -8,13 +8,8 @@ const url = require('url');
 const crypto = require('crypto');
 const { MongoClient, ObjectId } = require('mongodb');
 
-// Validate and set PORT
-let PORT = parseInt(process.env.PORT || '3000', 10);
-// Prevent using MongoDB's default port for the web server
-if (PORT === 27017) {
-	console.warn('⚠️  PORT is set to 27017 (MongoDB port). Changing to 3000.');
-	PORT = 3000;
-}
+// Use PORT from environment variable, default to 3000
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // MongoDB connection configuration
 // Support both MONGODB_URI and MONGO_URL (common in different deployment platforms)
