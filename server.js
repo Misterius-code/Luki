@@ -493,7 +493,24 @@ const server = http.createServer((req, res) => {
 		(async () => {
 			try {
 				const doc = await db.collection('zamowienia').findOne({});
-				const headers = doc && doc.data ? Object.keys(doc.data).filter(k => k !== '_id') : [];
+				let headers = doc && doc.data ? Object.keys(doc.data).filter(k => k !== '_id') : [];
+				
+				// Consolidate "Parametry dodatkowe" fields
+				const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+				const hasParametryDodatkowe = parametryDodatkoweFields.some(field => headers.includes(field));
+				
+				// Remove individual "Parametry dodatkowe" fields
+				headers = headers.filter(h => !parametryDodatkoweFields.includes(h));
+				
+				// Add "Parametry dodatkowe" as a single column if any of those fields exist
+				// or if "Parametry dodatkowe" already exists
+				if (hasParametryDodatkowe && !headers.includes('Parametry dodatkowe')) {
+					headers.push('Parametry dodatkowe');
+				} else if (!hasParametryDodatkowe && !headers.includes('Parametry dodatkowe')) {
+					// Always include it for new forms
+					headers.push('Parametry dodatkowe');
+				}
+				
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ headers }));
 			} catch (e) {
@@ -519,10 +536,40 @@ const server = http.createServer((req, res) => {
 					.limit(pageSize)
 					.toArray();
 				
-				const formattedItems = items.map(item => ({
-					...item.data,
-					_id: item._id.toString()
-				}));
+				// Helper function to consolidate "Parametry dodatkowe" fields
+				function consolidateParametryDodatkowe(data) {
+					const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+					const parametryValues = [];
+					
+					// Collect values from individual fields
+					parametryDodatkoweFields.forEach(field => {
+						if (data[field]) {
+							parametryValues.push(data[field]);
+							delete data[field]; // Remove individual field
+						}
+					});
+					
+					// Combine into "Parametry dodatkowe" if we have values
+					if (parametryValues.length > 0) {
+						// If "Parametry dodatkowe" already exists, combine with existing
+						if (data['Parametry dodatkowe']) {
+							data['Parametry dodatkowe'] = [data['Parametry dodatkowe'], ...parametryValues].join(', ');
+						} else {
+							data['Parametry dodatkowe'] = parametryValues.join(', ');
+						}
+					}
+					
+					return data;
+				}
+				
+				const formattedItems = items.map(item => {
+					const data = { ...item.data };
+					consolidateParametryDodatkowe(data);
+					return {
+						...data,
+						_id: item._id.toString()
+					};
+				});
 				
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ page, pageSize, items: formattedItems }));
@@ -864,7 +911,25 @@ const server = http.createServer((req, res) => {
 					return;
 				}
 				
-				const out = { ...doc.data, _id: doc._id.toString() };
+				// Consolidate "Parametry dodatkowe" fields
+				const data = { ...doc.data };
+				const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+				const parametryValues = [];
+				parametryDodatkoweFields.forEach(field => {
+					if (data[field]) {
+						parametryValues.push(data[field]);
+						delete data[field];
+					}
+				});
+				if (parametryValues.length > 0) {
+					if (data['Parametry dodatkowe']) {
+						data['Parametry dodatkowe'] = [data['Parametry dodatkowe'], ...parametryValues].join(', ');
+					} else {
+						data['Parametry dodatkowe'] = parametryValues.join(', ');
+					}
+				}
+				
+				const out = { ...data, _id: doc._id.toString() };
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify(out));
 			} catch (e) {

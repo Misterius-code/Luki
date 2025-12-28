@@ -811,6 +811,19 @@
                 // Remove "Pakowanie" from checkboxes to avoid duplication
                 delete checkboxes['Pakowanie'];
 
+                // Handle "Parametry dodatkowe" - combine all related checkboxes into one field
+                const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+                const parametryDodatkowe = [];
+                parametryDodatkoweFields.forEach(fieldName => {
+                    if (checkboxes[fieldName] && checkboxes[fieldName].length > 0) {
+                        parametryDodatkowe.push(...checkboxes[fieldName]);
+                        delete checkboxes[fieldName]; // Remove from checkboxes to avoid duplication
+                    }
+                });
+                if (parametryDodatkowe.length > 0) {
+                    data['Parametry dodatkowe'] = parametryDodatkowe.join(', ');
+                }
+
                 // Add remaining checkbox values (as arrays or comma-separated)
                 Object.keys(checkboxes).forEach(key => {
                     if (checkboxes[key].length === 1) {
