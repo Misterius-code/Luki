@@ -11,8 +11,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const PORT = process.env.PORT || 3000;
 
 // MongoDB connection configuration
-// Railway automatically sets MONGO_URL, so check that first, then MONGODB_URI
-const MONGODB_URI = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://localhost:27017';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'syn_prezesa';
 
 // Session management (in-memory for simplicity)

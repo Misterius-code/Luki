@@ -85,6 +85,10 @@
             border-color: #60a5fa;
             box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
         }
+        input[readonly] {
+            background: color-mix(in oklab, CanvasText 5%, Canvas);
+            cursor: not-allowed;
+        }
         textarea {
             min-height: 80px;
             resize: vertical;
@@ -272,7 +276,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" style="display: none;">
                         <label for="priorytet">Priorytet</label>
                         <div class="radio-group">
                             <div class="radio-option">
@@ -308,7 +312,7 @@
 
                     <div class="form-group">
                         <label for="numer-zlecenia">Numer zlecenia <span class="required">*</span></label>
-                        <input type="text" id="numer-zlecenia" name="Numer zlecenia" required>
+                        <input type="text" id="numer-zlecenia" name="Numer zlecenia" required readonly>
                     </div>
 
                     <div class="form-group">
@@ -343,21 +347,21 @@
 
                     <div class="form-group">
                         <label for="ilosc-jednostka">Ilość (kg/szt/mb)</label>
-                        <div class="radio-group">
-                            <div class="radio-option">
-                                <input type="radio" id="unit-kg" name="Ilość jednostka" value="Kilogramy">
+                        <div class="checkbox-group">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="unit-kg" name="Ilość jednostka" value="Kilogramy">
                                 <label for="unit-kg">Kilogramy</label>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="unit-szt" name="Ilość jednostka" value="Sztuk">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="unit-szt" name="Ilość jednostka" value="Sztuk">
                                 <label for="unit-szt">Sztuk</label>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="unit-mb" name="Ilość jednostka" value="Metry bieżące">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="unit-mb" name="Ilość jednostka" value="Metry bieżące">
                                 <label for="unit-mb">Metry bieżące</label>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="unit-other" name="Ilość jednostka" value="Other">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="unit-other" name="Ilość jednostka" value="Other">
                                 <label for="unit-other">Inne</label>
                             </div>
                         </div>
@@ -430,17 +434,17 @@
 
                     <div class="form-group">
                         <label for="nawoj-jednostka">Nawój na wałek (jaki/ile)</label>
-                        <div class="radio-group">
-                            <div class="radio-option">
-                                <input type="radio" id="nawoj-kg" name="Nawój jednostka" value="KG">
+                        <div class="checkbox-group">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="nawoj-kg" name="Nawój jednostka" value="KG">
                                 <label for="nawoj-kg">KG</label>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="nawoj-mb" name="Nawój jednostka" value="MB">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="nawoj-mb" name="Nawój jednostka" value="MB">
                                 <label for="nawoj-mb">MB</label>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="nawoj-other" name="Nawój jednostka" value="Other">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="nawoj-other" name="Nawój jednostka" value="Other">
                                 <label for="nawoj-other">Inne</label>
                             </div>
                         </div>
@@ -556,20 +560,21 @@
 
                     <div class="form-group">
                         <label for="pakowanie-typ">Pakowanie (szt.paczek/szt.zbiorowych)</label>
-                        <div class="radio-group">
-                            <div class="radio-option">
-                                <input type="radio" id="pak-worek" name="Pakowanie" value="Worek">
+                        <div class="checkbox-group">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="pak-worek" name="Pakowanie" value="Worek">
                                 <label for="pak-worek">Worek</label>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="pak-karton" name="Pakowanie" value="Karton">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="pak-karton" name="Pakowanie" value="Karton">
                                 <label for="pak-karton">Karton</label>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="pak-other" name="Pakowanie" value="Other">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="pak-other" name="Pakowanie" value="Other">
                                 <label for="pak-other">Inne</label>
                             </div>
                         </div>
+                        <input type="text" id="pakowanie-other" name="Pakowanie inne" placeholder="Podaj wartość" style="margin-top: 8px; display: none;">
                     </div>
                 </div>
             </div>
@@ -620,6 +625,70 @@
                 });
             }
 
+            // Show/hide "Pakowanie inne" text field
+            const pakOtherCheckbox = document.getElementById('pak-other');
+            const pakOtherInput = document.getElementById('pakowanie-other');
+            if (pakOtherCheckbox && pakOtherInput) {
+                const togglePakOtherField = () => {
+                    pakOtherInput.style.display = pakOtherCheckbox.checked ? 'block' : 'none';
+                    if (!pakOtherCheckbox.checked) {
+                        pakOtherInput.value = '';
+                    }
+                };
+                pakOtherCheckbox.addEventListener('change', togglePakOtherField);
+                // Check initial state
+                togglePakOtherField();
+            }
+
+            // Auto-generate order number based on Zleceniobiorca
+            async function generateOrderNumber(zleceniobiorca) {
+                if (!zleceniobiorca) return '';
+                
+                try {
+                    // Get all orders to count how many exist for this Zleceniobiorca
+                    const res = await fetch('/api/zamowienia?page=1&pageSize=1000');
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    const items = Array.isArray(data.items) ? data.items : [];
+                    
+                    // Count orders for this Zleceniobiorca
+                    const count = items.filter(item => item['Zleceniobiorca'] === zleceniobiorca).length;
+                    
+                    // Get current date
+                    const now = new Date();
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    
+                    // Generate order number: Zleceniobiorca/(count+1)/DD/MM
+                    const orderNumber = `${zleceniobiorca}/${count + 1}/${day}/${month}`;
+                    
+                    return orderNumber;
+                } catch (error) {
+                    console.error('Error generating order number:', error);
+                    // Fallback: just use date if count fails
+                    const now = new Date();
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    return `${zleceniobiorca}/1/${day}/${month}`;
+                }
+            }
+
+            // Auto-generate order number when Zleceniobiorca is selected
+            const zleceniobiorcaRadios = document.querySelectorAll('input[name="Zleceniobiorca"]');
+            const numerZleceniaInput = document.getElementById('numer-zlecenia');
+            
+            zleceniobiorcaRadios.forEach(radio => {
+                radio.addEventListener('change', async () => {
+                    if (radio.checked && numerZleceniaInput) {
+                        const zleceniobiorca = radio.value;
+                        const orderNumber = await generateOrderNumber(zleceniobiorca);
+                        if (orderNumber) {
+                            numerZleceniaInput.value = orderNumber;
+                        }
+                    }
+                });
+            });
+
             // Form submission
             const form = document.getElementById('order-form');
             const submitBtn = document.getElementById('btn-submit');
@@ -656,9 +725,10 @@
                     }
                 });
 
-                // Combine all data
+                // Combine all data (but skip fields that will be handled specially)
                 for (const [key, value] of formData.entries()) {
-                    if (value.trim()) {
+                    // Skip "Ilość", "Nawój wartość", and "Pakowanie inne" - they will be combined with checkbox values
+                    if (key !== 'Ilość' && key !== 'Nawój wartość' && key !== 'Pakowanie inne' && value.trim()) {
                         data[key] = value.trim();
                     }
                 }
@@ -666,7 +736,82 @@
                 // Add radio values
                 Object.assign(data, radioGroups);
 
-                // Add checkbox values (as arrays or comma-separated)
+                // Handle "Ilość jednostka" + "Ilość" - combine checkbox values with text field
+                const iloscJednostka = checkboxes['Ilość jednostka'] || [];
+                const iloscWartosc = formData.get('Ilość')?.trim() || '';
+                if (iloscJednostka.length > 0 || iloscWartosc) {
+                    const parts = [];
+                    // Add checkbox values (excluding "Other" if it's selected, we'll handle it separately)
+                    const iloscJednostkaFiltered = iloscJednostka.filter(v => v !== 'Other');
+                    if (iloscJednostkaFiltered.length > 0) {
+                        parts.push(...iloscJednostkaFiltered);
+                    }
+                    // Add text field value if provided
+                    if (iloscWartosc) {
+                        parts.push(iloscWartosc);
+                    }
+                    // If "Other" is checked but no text, add "Other"
+                    if (iloscJednostka.includes('Other') && !iloscWartosc) {
+                        parts.push('Other');
+                    }
+                    if (parts.length > 0) {
+                        data['Ilość'] = parts.join(', ');
+                    }
+                }
+                // Remove "Ilość jednostka" from checkboxes to avoid duplication
+                delete checkboxes['Ilość jednostka'];
+
+                // Handle "Nawój jednostka" + "Nawój wartość" - combine checkbox values with text field
+                const nawojJednostka = checkboxes['Nawój jednostka'] || [];
+                const nawojWartosc = formData.get('Nawój wartość')?.trim() || '';
+                if (nawojJednostka.length > 0 || nawojWartosc) {
+                    const parts = [];
+                    // Add checkbox values (excluding "Other" if it's selected)
+                    const nawojJednostkaFiltered = nawojJednostka.filter(v => v !== 'Other');
+                    if (nawojJednostkaFiltered.length > 0) {
+                        parts.push(...nawojJednostkaFiltered);
+                    }
+                    // Add text field value if provided
+                    if (nawojWartosc) {
+                        parts.push(nawojWartosc);
+                    }
+                    // If "Other" is checked but no text, add "Other"
+                    if (nawojJednostka.includes('Other') && !nawojWartosc) {
+                        parts.push('Other');
+                    }
+                    if (parts.length > 0) {
+                        data['Nawój wartość'] = parts.join(', ');
+                    }
+                }
+                // Remove "Nawój jednostka" from checkboxes to avoid duplication
+                delete checkboxes['Nawój jednostka'];
+
+                // Handle "Pakowanie" - combine checkbox values with text field
+                const pakowanie = checkboxes['Pakowanie'] || [];
+                const pakowanieOther = formData.get('Pakowanie inne')?.trim() || '';
+                if (pakowanie.length > 0 || pakowanieOther) {
+                    const parts = [];
+                    // Add checkbox values (excluding "Other" if it's selected)
+                    const pakowanieFiltered = pakowanie.filter(v => v !== 'Other');
+                    if (pakowanieFiltered.length > 0) {
+                        parts.push(...pakowanieFiltered);
+                    }
+                    // Add text field value if provided
+                    if (pakowanieOther) {
+                        parts.push(pakowanieOther);
+                    }
+                    // If "Other" is checked but no text, add "Other"
+                    if (pakowanie.includes('Other') && !pakowanieOther) {
+                        parts.push('Other');
+                    }
+                    if (parts.length > 0) {
+                        data['Pakowanie'] = parts.join(', ');
+                    }
+                }
+                // Remove "Pakowanie" from checkboxes to avoid duplication
+                delete checkboxes['Pakowanie'];
+
+                // Add remaining checkbox values (as arrays or comma-separated)
                 Object.keys(checkboxes).forEach(key => {
                     if (checkboxes[key].length === 1) {
                         data[key] = checkboxes[key][0];
