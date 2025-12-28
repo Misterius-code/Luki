@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Karta wyrobu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light dark; }
+    html[data-theme="light"] { color-scheme: light; }
+    html[data-theme="dark"] { color-scheme: dark; }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      color: CanvasText;
+      background: Canvas;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding-bottom: 80px; /* Extra padding at bottom for fixed button */
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid color-mix(in oklab, CanvasText 30%, transparent);
+      display: inline-block;
+      padding: 6px 10px 10px 10px;
+    }
+
+    .data-grid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 12px 0 24px 0;
+    }
+    .data-grid th,
+    .data-grid td {
+      border: 1px solid color-mix(in oklab, CanvasText 30%, transparent);
+      padding: 8px 10px;
+      vertical-align: middle;
+      word-wrap: break-word;
+    }
+    .data-grid th {
+      text-align: center;
+      font-weight: 700;
+    }
+    .data-grid td {
+      background: Canvas !important;
+    }
+    .pair-grid td.value {
+      background: Canvas !important;
+    }
+
+    .section-label {
+      text-align: center;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: 1px solid color-mix(in oklab, CanvasText 30%, transparent);
+      padding: 8px 10px;
+      margin: 16px 0 8px 0;
+    }
+
+    .muted { color: color-mix(in oklab, CanvasText 60%, transparent); font-weight: 600; }
+
+    .pair-grid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-bottom: 16px;
+    }
+    .pair-grid td { border: 1px solid color-mix(in oklab, CanvasText 30%, transparent); padding: 8px 10px; }
+    .pair-grid td.label { width: 25%; font-weight: 600; text-align: center; }
+    .pair-grid td.value { width: 25%; }
+    .pair-grid td.spacer { border: none; }
+
+    /* Inputs inside table cells */
+    .cell-input {
+      width: 100%;
+      border: none;
+      background: transparent !important;
+      font: inherit;
+      color: inherit;
+      padding: 2px 0;
+      outline: none;
+    }
+    .cell-input:disabled {
+      background: color-mix(in oklab, Canvas 96%, transparent) !important;
+      cursor: not-allowed;
+    }
+    .cell-textarea {
+      width: 100%;
+      min-height: 88px;
+      border: none;
+      background: transparent !important;
+      font: inherit;
+      color: inherit;
+      padding: 4px 0;
+      resize: vertical;
+      outline: none;
+    }
+
+    /* Hide empty rows */
+    .data-grid tr.empty-row {
+      display: none;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .container { margin: 0; padding: 0; max-width: none; }
+      .title { border-bottom-width: 1px; }
+      .section-label { page-break-inside: avoid; }
+      table { page-break-inside: avoid; }
+    }
+
+    /* Header container - styles moved to header.css for sticky positioning */
+
+    /* Print button fixed at bottom */
+    .print-button-fixed {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      background: Canvas;
+      border-top: 1px solid color-mix(in oklab, CanvasText 20%, transparent);
+      box-shadow: 0 -2px 8px rgba(0,0,0,.1);
+      z-index: 1000;
+    }
+
+    .btn-print {
+      appearance: none;
+      border: 1px solid color-mix(in oklab, CanvasText 30%, transparent);
+      background: color-mix(in oklab, Canvas 96%, transparent);
+      color: CanvasText;
+      padding: 10px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-print:hover {
+      background: color-mix(in oklab, Canvas 90%, transparent);
+      border-color: color-mix(in oklab, CanvasText 40%, transparent);
+    }
+
+    .btn-print:active {
+      transform: scale(0.98);
+    }
+
+    @media print {
+      .print-button-fixed {
+        display: none;
+      }
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      background: #10b981; /* green */
+      color: #ffffff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+      font-size: 14px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 2000;
+      pointer-events: none;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .toast.error {
+      background: #ef4444; /* red */
+    }
+  </style>
+</head>
+<body>
+  <div id="header-container" data-title="Karta wyrobu" data-crumbs='/ <a href="/">Zamówienia</a> / Karta Wyrobu'></div>
+  <script src="/header.js"></script>
+  <div class="container">
+    <header>
+      <div class="title">KARTA WYROBU</div>
+    </header>
+
+    <table class="pair-grid">
+      <tr>
+        <td class="label">Zleceniodawca</td>
+        <td class="value"><input class="cell-input" type="text" placeholder="" aria-label="Zleceniodawca"></td>
+        <td class="spacer"></td>
+        <td class="label">Nr. Zlecenia</td>
+        <td class="value"><input class="cell-input" type="text" placeholder="" aria-label="Nr. Zlecenia"></td>
+      </tr>
+    </table>
+
+    <table class="data-grid">
+      <tr>
+        <th style="width: 30%">Nazwa wyrobu gotowego</th>
+        <th style="width: 30%">Wymiar wyrobu gotowego</th>
+        <th style="width: 40%">Ilość kg/szt/mb</th>
+      </tr>
+      <tr>
+        <td style="text-align:center"><input class="cell-input" type="text" aria-label="Nazwa wyrobu gotowego"></td>
+        <td style="text-align:center"><input class="cell-input" type="text" aria-label="Wymiar wyrobu gotowego"></td>
+        <td style="text-align:center"><input class="cell-input" type="text" aria-label="Ilość kg/szt/mb"></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Wytłaczarka</div>
+    <table class="pair-grid">
+      <tr>
+        <td class="label">NR2</td>
+        <td class="value"><input class="cell-input" type="text" aria-label="NR2"></td>
+        <td class="label">NR1</td>
+        <td class="value"><input class="cell-input" type="text" aria-label="NR1"></td>
+        <td class="label">Barwnik</td>
+        <td class="value"><input class="cell-input" type="text" aria-label="Barwnik"></td>
+        <td class="label">Jonizacja</td>
+        <td class="value"><input class="cell-input" type="text" aria-label="Jonizacja"></td>
+        <td class="label">Tworzywo</td>
+        <td class="value" colspan="3"><input class="cell-input" type="text" aria-label="Tworzywo"></td>
+      </tr>
+    </table>
+
+    <table class="data-grid">
+      <tr>
+        <th colspan="2">Całkowita szerokość rękawa</th>
+        <th>Zakładka boczna</th>
+        <th>Grubość</th>
+        <th colspan="3">Rodzaj wyrobu</th>
+        <th colspan="2">Nawój na wałek</th>
+        <th colspan="2">Dwie warstwy folii</th>
+        <th>J. warstwa folii</th>
+      </tr>
+      <tr>
+        <td colspan="2" style="text-align:center"><input class="cell-input" type="text" aria-label="Całkowita szerokość rękawa"></td>
+        <td style="text-align:right"><input class="cell-input" type="text" aria-label="Zakładka boczna"></td>
+        <td style="text-align:right"><input class="cell-input" type="text" aria-label="Grubość"></td>
+        <td colspan="3" style="text-align:center"><input class="cell-input" type="text" aria-label="Rodzaj wyrobu"></td>
+        <td colspan="2" style="text-align:center"><input class="cell-input" type="text" aria-label="Nawój na wałek"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Dwie warstwy folii"></td>
+        <td><input class="cell-input" type="text" aria-label="J. warstwa folii"></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Uwagi</div>
+    <table class="data-grid">
+      <tr>
+        <td style="height:90px"><textarea class="cell-textarea" aria-label="Uwagi"></textarea></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Przebieg Produkcji na DRUKARNI</div>
+    <table class="data-grid">
+      <tr>
+        <th colspan="12" style="text-align:left; font-weight:600; padding:8px 10px;">
+          <input class="cell-input" type="text" placeholder="Nazwa drukarni" aria-label="Nazwa drukarni" style="font-weight:600;">
+        </th>
+      </tr>
+      <tr>
+        <th colspan="2">Nazwisko drukarza</th>
+        <th colspan="2">Data/zmiana</th>
+        <th colspan="2">Nr. Wałka (etykieta)</th>
+        <th colspan="2">Ilość zadrukowana mb</th>
+        <th colspan="2">Odpady ilość kg</th>
+        <th colspan="2">UWAGI</th>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Automaty</div>
+    <table class="data-grid">
+      <tr>
+        <th rowspan="2">Szerokość</th>
+        <th rowspan="2">Wysokość</th>
+        <th rowspan="2">Zakładka denna</th>
+        <th rowspan="2">Zrywka/ Klapka</th>
+        <th colspan="3" rowspan="2">Zgrzew</th>
+        <th colspan="2" rowspan="2">Parametry dodatkowe</th>
+        <th colspan="2">Zrywka</th>
+        <th rowspan="2">Pakowanie</th>
+      </tr>
+      <tr>
+        <th colspan="2">Perforacja</th>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Szerokość"></td>
+        <td style="text-align:center"><input class="cell-input" type="text" aria-label="Wysokość"></td>
+        <td><input class="cell-input" type="text" aria-label="Zakładka denna"></td>
+        <td><input class="cell-input" type="text" aria-label="Zrywka/ Klapka"></td>
+        <td colspan="3" style="text-align:center"><input class="cell-input" type="text" aria-label="Zgrzew"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Parametry dodatkowe"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Perforacja"></td>
+        <td><input class="cell-input" type="text" aria-label="Pakowanie"></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Przebieg produkcji na Wytłaczarce</div>
+    <table class="data-grid">
+      <tr>
+        <th>Wytłaczarz</th>
+        <th>nr. Wałka</th>
+        <th>Data/zmiana</th>
+        <th colspan="2">wałki waga/metry</th>
+        <th>Odp</th>
+        <th>Wytł</th>
+        <th>nr. Wałka</th>
+        <th>Data/zmiana</th>
+        <th colspan="2">wałki waga/metry</th>
+        <th>Odpad kg</th>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wytłaczarz"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odp"></td>
+        <td><input class="cell-input" type="text" aria-label="Wytł"></td>
+        <td><input class="cell-input" type="text" aria-label="nr. Wałka"></td>
+        <td><input class="cell-input" type="text" aria-label="Data/zmiana" placeholder="/"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="wałki waga/metry" placeholder="/"></td>
+        <td><input class="cell-input" type="text" aria-label="Odpad kg"></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Przebieg produkcji na AUTOMATACH</div>
+    <table class="data-grid">
+      <tr>
+        <th colspan="2">Nazwisko operatora</th>
+        <th colspan="2">Data/zmiana</th>
+        <th colspan="2">Wałek (etykieta)</th>
+        <th colspan="2">Ilość wyprodukowanych worków</th>
+        <th colspan="2">Odpady ilość kg</th>
+        <th colspan="2">UWAGI</th>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko operatora"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Wałek (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość wyprodukowanych worków"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (automaty)"></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Magazynier</div>
+    <table class="data-grid">
+      <tr>
+        <th>Magazynier</th>
+        <th>Data</th>
+        <th>Ilość</th>
+        <th colspan="7"></th>
+        <th>Uwagi</th>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Magazynier"></td>
+        <td><input class="cell-input" type="text" aria-label="Data (magazynier)"></td>
+        <td><input class="cell-input" type="text" aria-label="Ilość (magazynier)"></td>
+        <td colspan="7"></td>
+        <td><input class="cell-input" type="text" aria-label="Uwagi (magazynier)"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Magazynier"></td>
+        <td><input class="cell-input" type="text" aria-label="Data (magazynier)"></td>
+        <td><input class="cell-input" type="text" aria-label="Ilość (magazynier)"></td>
+        <td colspan="7"></td>
+        <td><input class="cell-input" type="text" aria-label="Uwagi (magazynier)"></td>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Magazynier"></td>
+        <td><input class="cell-input" type="text" aria-label="Data (magazynier)"></td>
+        <td><input class="cell-input" type="text" aria-label="Ilość (magazynier)"></td>
+        <td colspan="7"></td>
+        <td><input class="cell-input" type="text" aria-label="Uwagi (magazynier)"></td>
+      </tr>
+    </table>
+
+    <div class="section-label">Wystawiający</div>
+    <table class="data-grid">
+      <tr>
+        <th>Wystawiający</th>
+        <th>Data</th>
+        <th colspan="9">Faktura/WZ-tka</th>
+      </tr>
+      <tr>
+        <td><input class="cell-input" type="text" aria-label="Wystawiający"></td>
+        <td><input class="cell-input" type="text" aria-label="Data (wystawiający)"></td>
+        <td colspan="9"><input class="cell-input" type="text" aria-label="Faktura/WZ-tka"></td>
+      </tr>
+    </table>
+
+  </div>
+
+  <!-- Toast container -->
+  <div id="saveToast" class="toast" role="status" aria-live="polite" aria-atomic="true" style="display:none;">Zapisano zmiany</div>
+
+  <!-- Print and Save buttons fixed at bottom -->
+  <div class="print-button-fixed">
+    <button type="button" class="btn-print" id="btn-save">Zapisz</button>
+    <button type="button" class="btn-print" id="btn-print">Drukuj</button>
+  </div>
+
+  <script>
+    // Dynamic row management for tables
+    function isRowEmpty(row) {
+      const inputs = row.querySelectorAll('input.cell-input, textarea.cell-textarea');
+      if (inputs.length === 0) return true;
+      return Array.from(inputs).every(input => !input.value || input.value.trim() === '');
+    }
+
+    function updateRowVisibility(row, isLastVisible) {
+      if (isRowEmpty(row)) {
+        if (!isLastVisible) {
+          row.classList.add('empty-row');
+        } else {
+          row.classList.remove('empty-row');
+        }
+      } else {
+        row.classList.remove('empty-row');
+      }
+    }
+
+    function setupDynamicRows(table) {
+      const rows = Array.from(table.querySelectorAll('tr')).filter(tr => !tr.querySelector('th'));
+      if (rows.length === 0) return;
+
+      // Function to get template row (clone first row)
+      function getTemplateRow() {
+        const firstRow = rows[0];
+        const newRow = firstRow.cloneNode(true);
+        // Clear all input values
+        newRow.querySelectorAll('input, textarea').forEach(input => {
+          input.value = '';
+        });
+        return newRow;
+      }
+
+      // Function to update all rows visibility
+      function updateAllRows() {
+        const visibleRows = rows.filter(r => !r.classList.contains('empty-row'));
+        const lastVisibleRow = visibleRows.length > 0 ? visibleRows[visibleRows.length - 1] : rows[0];
+        
+        rows.forEach((row) => {
+          const isLastVisible = row === lastVisibleRow;
+          updateRowVisibility(row, isLastVisible);
+        });
+      }
+
+      // Function to ensure there's always at least one visible row
+      function ensureVisibleRow() {
+        const visibleRows = rows.filter(r => !r.classList.contains('empty-row'));
+        if (visibleRows.length === 0 && rows.length > 0) {
+          rows[0].classList.remove('empty-row');
+        }
+      }
+
+      // Initial setup - hide empty rows except first (which is always visible)
+      rows.forEach((row, index) => {
+        if (index === 0) {
+          // Always show first row
+          row.classList.remove('empty-row');
+        } else {
+          // Hide empty rows initially
+          if (isRowEmpty(row)) {
+            row.classList.add('empty-row');
+          } else {
+            row.classList.remove('empty-row');
+          }
+        }
+      });
+      
+      // Ensure at least one row is visible
+      ensureVisibleRow();
+      updateAllRows();
+
+      // Add event listeners to all inputs
+      rows.forEach(row => {
+        const inputs = row.querySelectorAll('input.cell-input, textarea.cell-textarea');
+        inputs.forEach(input => {
+          input.addEventListener('input', () => {
+            updateAllRows();
+            ensureVisibleRow();
+            
+            // If this is the last visible row and has content, add a new row if needed
+            const visibleRows = rows.filter(r => !r.classList.contains('empty-row'));
+            if (visibleRows.length > 0 && row === visibleRows[visibleRows.length - 1] && !isRowEmpty(row)) {
+              // Check if there's a next row that's empty
+              const nextRowIndex = rows.indexOf(row) + 1;
+              if (nextRowIndex >= rows.length || rows[nextRowIndex].classList.contains('empty-row')) {
+                // Add new row if needed
+                if (nextRowIndex >= rows.length) {
+                  const newRow = getTemplateRow();
+                  table.appendChild(newRow);
+                  rows.push(newRow);
+                  // Setup event listeners for new row
+                  const newInputs = newRow.querySelectorAll('input.cell-input, textarea.cell-textarea');
+                  newInputs.forEach(newInput => {
+                    newInput.addEventListener('input', () => {
+                      updateAllRows();
+                      ensureVisibleRow();
+                    });
+                  });
+                } else {
+                  rows[nextRowIndex].classList.remove('empty-row');
+                }
+              }
+            }
+          });
+
+          input.addEventListener('blur', () => {
+            updateAllRows();
+            ensureVisibleRow();
+          });
+        });
+      });
+    }
+
+    // Initialize dynamic rows for all data-grid tables
+    window.addEventListener('DOMContentLoaded', () => {
+      const tables = document.querySelectorAll('.data-grid');
+      tables.forEach(table => {
+        // Only setup for tables with multiple data rows (more than just header)
+        const dataRows = Array.from(table.querySelectorAll('tr')).filter(tr => !tr.querySelector('th'));
+        if (dataRows.length > 1) {
+          setupDynamicRows(table);
+        }
+      });
+
+      // Print button handler
+      const printBtn = document.getElementById('btn-print');
+      if (printBtn) {
+        printBtn.addEventListener('click', () => {
+          window.print();
+        });
+      }
+
+      // Save button handler
+      const saveBtn = document.getElementById('btn-save');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+          await handleSave();
+        });
+      }
+    });
+
+    // Global variables to store order data and mapping
+    let currentOrderData = null;
+    let currentFieldMapping = null;
+
+    // Function to collect all form data
+    function collectFormData() {
+      const data = {};
+      const fieldMapping = getFieldMapping();
+      
+      // Collect all inputs and textareas
+      document.querySelectorAll('input.cell-input, textarea.cell-textarea').forEach(input => {
+        const label = input.getAttribute('aria-label');
+        if (!label) return;
+        
+        // Find the order key for this label
+        const orderKey = Object.keys(fieldMapping).find(key => fieldMapping[key] === label);
+        if (orderKey) {
+          data[orderKey] = input.value || '';
+        } else {
+          // If not in mapping, use label as key (for fields not in mapping)
+          data[label] = input.value || '';
+        }
+      });
+      
+      return data;
+    }
+
+    // Function to handle save (either update existing or create new)
+    async function handleSave() {
+      const saveBtn = document.getElementById('btn-save');
+      const originalText = saveBtn ? saveBtn.textContent : '';
+      
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Zapisywanie...';
+      }
+
+      try {
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
+        
+        if (id && currentOrderData) {
+          // Update existing order
+          await saveChanges(currentOrderData, currentFieldMapping || getFieldMapping());
+        } else {
+          // Create new order
+          const formData = collectFormData();
+          
+          // Map Zleceniodawca to Zleceniobiorca for API
+          if (formData['Zleceniodawca']) {
+            formData['Zleceniobiorca'] = formData['Zleceniodawca'];
+          }
+          
+          // Map Nr. Zlecenia to Numer zlecenia for API
+          const nrZleceniaInput = findInputByLabel('Nr. Zlecenia');
+          if (nrZleceniaInput && nrZleceniaInput.value) {
+            formData['Numer zlecenia'] = nrZleceniaInput.value;
+          }
+          
+          // Validate required fields
+          if (!formData['Zleceniobiorca'] && !formData['Zleceniodawca']) {
+            showToast('Zleceniodawca jest wymagany', true);
+            if (saveBtn) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = originalText;
+            }
+            return;
+          }
+          
+          if (!formData['Numer zlecenia']) {
+            showToast('Nr. Zlecenia jest wymagany', true);
+            if (saveBtn) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = originalText;
+            }
+            return;
+          }
+
+          const response = await fetch('/api/zamowienia', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Błąd zapisu');
+          }
+
+          if (result.ok) {
+            showToast('Zamówienie zostało zapisane pomyślnie!', false);
+            // Update URL with new ID if we got one
+            if (result.id) {
+              const newUrl = new URL(window.location);
+              newUrl.searchParams.set('id', result.id);
+              window.history.replaceState({}, '', newUrl);
+              // Reload to enable update mode
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            }
+          } else {
+            throw new Error(result.error || 'Błąd zapisu');
+          }
+        }
+      } catch (error) {
+        console.error('Save error:', error);
+        showToast('Błąd podczas zapisywania: ' + error.message, true);
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = originalText;
+        }
+      }
+    }
+
+    // Load by id from URL and hydrate form
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(location.search);
+      const id = params.get('id');
+      if (!id) {
+        // Store mapping for new orders
+        currentFieldMapping = getFieldMapping();
+        return;
+      }
+      loadOrderById(id).then((orderData) => {
+        if (!orderData) return;
+        currentOrderData = orderData;
+        currentFieldMapping = getFieldMapping();
+        populateForm(orderData);
+        lockLockedFields();
+        setupAutoSave(orderData, currentFieldMapping);
+        // Re-initialize dynamic rows after populating form
+        const tables = document.querySelectorAll('.data-grid');
+        tables.forEach(table => {
+          const dataRows = Array.from(table.querySelectorAll('tr')).filter(tr => !tr.querySelector('th'));
+          if (dataRows.length > 1) {
+            setupDynamicRows(table);
+          }
+        });
+      // Auto print if requested
+      if (params.get('print') === '1') {
+        setTimeout(() => {
+          window.print();
+        }, 300);
+      }
+      }).catch(err => console.error('Load by id error:', err));
+    });
+
+    function getFieldMapping() {
+      return {
+        'Zleceniodawca': 'Zleceniodawca',
+        'Numer zlecenia': 'Nr. Zlecenia',
+        'Nazwa wyrobu gotowego': 'Nazwa wyrobu gotowego',
+        'Wymiar wyrobu gotowego': 'Wymiar wyrobu gotowego',
+        'Ilość kg/szt/mb': 'Ilość kg/szt/mb',
+        'Wytłaczarka NR2': 'NR2',
+        'Wytłaczarka NR1': 'NR1',
+        'Barwnik': 'Barwnik',
+        'Jonizacja': 'Jonizacja',
+        'Tworzywo': 'Tworzywo',
+        'Całkowita szerokość rękawa': 'Całkowita szerokość rękawa',
+        'Zakładka boczna': 'Zakładka boczna',
+        'Grubość': 'Grubość',
+        'Rodzaj wyrobu': 'Rodzaj wyrobu',
+        'Nawój na wałek (jaki/ile)': 'Nawój na wałek',
+        'UWAGI': 'Uwagi',
+        'Szerokość': 'Szerokość',
+        'Wysokość': 'Wysokość',
+        'Zakładka denna': 'Zakładka denna',
+        'Zrywka/Klapka': 'Zrywka/ Klapka',
+        'Zgrzew': 'Zgrzew',
+        'Parametry dodatkowe': 'Parametry dodatkowe',
+        'Zrywka': 'Zrywka',
+        'Perforacja': 'Perforacja',
+        'Pakowanie (szt.paczek/szt.zbiorowych)': 'Pakowanie'
+      };
+    }
+
+    function findInputByLabel(label) {
+      const inputs = document.querySelectorAll('input, textarea');
+      for (const input of inputs) {
+        if (input.getAttribute('aria-label') === label) {
+          return input;
+        }
+      }
+      return null;
+    }
+
+    function populateForm(orderData) {
+      const fieldMapping = getFieldMapping();
+      Object.entries(fieldMapping).forEach(([orderKey, formLabel]) => {
+        if (orderData[orderKey] !== undefined && orderData[orderKey] !== null) {
+          const input = findInputByLabel(formLabel);
+          if (input) {
+            input.value = String(orderData[orderKey]);
+          }
+        }
+      });
+    }
+
+    function lockLockedFields() {
+      const lockedLabels = ['Zleceniodawca', 'Nr. Zlecenia'];
+      lockedLabels.forEach(lbl => {
+        const el = findInputByLabel(lbl);
+        if (el) {
+          el.setAttribute('disabled', 'disabled');
+          el.style.background = 'color-mix(in oklab, Canvas 96%, transparent)';
+          el.style.cursor = 'not-allowed';
+        }
+      });
+    }
+
+    async function loadOrderById(id) {
+      const res = await fetch(`/api/zamowienia/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      return await res.json();
+    }
+
+    let saveTimeoutId = null;
+
+    function setupAutoSave(orderData, fieldMapping) {
+      const inputs = document.querySelectorAll('input:not([disabled]), textarea');
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          if (saveTimeoutId) clearTimeout(saveTimeoutId);
+          saveTimeoutId = setTimeout(() => saveChanges(orderData, fieldMapping), 800);
+        });
+        input.addEventListener('blur', () => {
+          if (saveTimeoutId) clearTimeout(saveTimeoutId);
+          saveTimeoutId = setTimeout(() => saveChanges(orderData, fieldMapping), 200);
+        });
+      });
+    }
+
+    function showToast(message, isError = false) {
+      const el = document.getElementById('saveToast');
+      if (!el) return;
+      el.textContent = message || (isError ? 'Błąd zapisu' : 'Zapisano zmiany');
+      el.classList.toggle('error', !!isError);
+      el.style.display = 'block';
+      // force reflow to restart transition
+      void el.offsetWidth;
+      el.classList.add('show');
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => { el.style.display = 'none'; }, 200);
+      }, 1800);
+    }
+
+    async function saveChanges(orderData, fieldMapping) {
+      try {
+        // Build a minimal PATCH with only changed fields
+        const payload = {};
+        Object.entries(fieldMapping).forEach(([orderKey, formLabel]) => {
+          const el = document.querySelector(`[aria-label="${formLabel}"]`);
+          if (!el) return;
+          if (formLabel === 'Zleceniodawca' || formLabel === 'Nr. Zlecenia') return;
+          payload[orderKey] = el.value ?? '';
+        });
+
+        const putRes = await fetch(`/api/zamowienia/${encodeURIComponent(orderData._id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!putRes.ok) throw new Error('Błąd zapisu zmian');
+        const result = await putRes.json();
+        if (!result.ok) throw new Error('Serwer nie potwierdził zapisu');
+        // Success toast
+        showToast('Zapisano zmiany', false);
+      } catch (e) {
+        console.error('Save error:', e);
+        showToast('Błąd zapisu', true);
+      }
+    }
+  </script>
+</body>
+</html>
+
+

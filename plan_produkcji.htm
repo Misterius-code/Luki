@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Plan produkcji</title>
+    <style>
+        :root { color-scheme: light dark; }
+        html[data-theme="light"] { color-scheme: light; }
+        html[data-theme="dark"] { color-scheme: dark; }
+        body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+        /* Header container styles moved to header.css */
+        .container { max-width: 1100px; margin: 16px auto; padding: 0 16px; }
+        /* h1 styles moved to header.css */
+        .section { margin: 16px 0 20px; }
+        details.section { border: 1px solid rgba(127,127,127,.35); border-radius: 8px; background: color-mix(in oklab, Canvas 96%, transparent); }
+        details.section + details.section { margin-top: 14px; }
+        summary.section-title { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; padding: 10px 12px; }
+        summary.section-title::-webkit-details-marker { display: none; }
+        .chevron { display: inline-block; transition: transform .2s ease; }
+        details[open] .chevron { transform: rotate(90deg); }
+        .section-body { padding: 10px 12px 14px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        td, th { border: 1px solid rgba(127,127,127,.35); padding: 8px 10px; vertical-align: middle; }
+        .row-input { width: 100%; border: none; background: transparent; color: inherit; font: inherit; padding: 6px 0; outline: none; }
+        .row-input:focus { outline: 2px solid #60a5fa; outline-offset: -2px; background: color-mix(in oklab, Canvas 98%, transparent); }
+        /* Header styles moved to header.css */
+        .actions { display: inline-flex; gap: 8px; align-items: center; }
+        .btn-icon { appearance: none; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; padding: 6px; border-radius: 8px; cursor: pointer; line-height: 0; }
+        .btn-icon:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
+        .icon { width: 16px; height: 16px; display: inline-block; }
+        .icon-approve { color: #10b981; }
+        .icon-reject { color: #ef4444; }
+    </style>
+    <link rel="stylesheet" href="/header.css">
+    <script src="/header.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // Auto-collapse sections that have no info; open when info appears
+            function isSectionEmpty(detailsEl) {
+                if (!detailsEl) return true;
+                // If any link (Nr.Zlecenia) exists in section body, consider it non-empty
+                const hasLink = detailsEl.querySelector('tbody a');
+                if (hasLink && (hasLink.textContent || '').trim().length > 0) return false;
+                // Otherwise, check inputs
+                const texts = detailsEl.querySelectorAll('input[type="text"]');
+                for (const t of texts) { if ((t.value || '').trim().length > 0) return false; }
+                return true;
+            }
+            function evaluateAllSections() {
+                document.querySelectorAll('details.section').forEach(d => {
+                    if (isSectionEmpty(d)) { d.open = false; } else { d.open = true; }
+                });
+            }
+            function attachSectionListeners() {
+                document.querySelectorAll('details.section').forEach(d => {
+                    d.querySelectorAll('input').forEach(inp => {
+                        const evt = inp.type === 'checkbox' ? 'change' : 'input';
+                        inp.addEventListener(evt, () => {
+                            // If any data exists → open; otherwise close
+                            d.open = !isSectionEmpty(d);
+                        });
+                        inp.addEventListener('blur', () => { d.open = !isSectionEmpty(d); });
+                    });
+                });
+            }
+            evaluateAllSections();
+            attachSectionListeners();
+
+            // Load assignments and render
+            loadPlanAssignments();
+        });
+
+        function mapDestinationToTbodyId(dest) {
+            switch ((dest || '').toLowerCase()) {
+                case 'wytlaczarka 1': return 'tbody-wytlaczarka-1';
+                case 'wytlaczarka 2': return 'tbody-wytlaczarka-2';
+                case 'arvor': return 'tbody-arvor';
+                case 'automaty sredni': return 'tbody-sredni';
+                case 'vicket/mamata': return 'tbody-mamata';
+                case 'carraro': return 'tbody-carraro';
+                case 'manzoni': return 'tbody-manzoni';
+                default: return '';
+            }
+        }
+
+        async function loadPlanAssignments() {
+            try {
+                const res = await fetch('/api/plan?page=1&pageSize=200');
+                if (!res.ok) return;
+                const data = await res.json();
+                const items = Array.isArray(data.items) ? data.items : [];
+                // Clear TBODIES (keep one template row only if no data)
+                const tbodyIds = ['tbody-wytlaczarka-1','tbody-wytlaczarka-2','tbody-arvor','tbody-sredni','tbody-mamata','tbody-carraro','tbody-manzoni'];
+                const templateById = {};
+                tbodyIds.forEach(id => {
+                    const tb = document.getElementById(id);
+                    if (!tb) return;
+                    // Save first row as template
+                    const first = tb.querySelector('tr');
+                    templateById[id] = first ? first.cloneNode(true) : null;
+                    tb.innerHTML = '';
+                });
+
+                items.forEach(it => {
+                    const id = mapDestinationToTbodyId(it.destination);
+                    if (!id) return;
+                    const tb = document.getElementById(id);
+                    if (!tb) return;
+                    // Build a row
+                    const tr = document.createElement('tr');
+                    tr.dataset.planId = it._id ? String(it._id) : ''; // Store plan assignment ID
+                    const tdNr = document.createElement('td');
+                    const a = document.createElement('a');
+                    a.href = `/karta-wyrobu?id=${encodeURIComponent(it.orderId || '')}`;
+                    a.textContent = it.numerZlecenia || '';
+                    a.title = 'Otwórz kartę wyrobu';
+                    tdNr.appendChild(a);
+                    const tdPri = document.createElement('td');
+                    const inpPri = document.createElement('input');
+                    inpPri.type = 'text';
+                    inpPri.className = 'row-input';
+                    tdPri.appendChild(inpPri);
+                    const tdUw = document.createElement('td');
+                    const inpUw = document.createElement('input');
+                    inpUw.type = 'text';
+                    inpUw.className = 'row-input';
+                    tdUw.appendChild(inpUw);
+                    const tdAct = document.createElement('td');
+                    const btnApprove = document.createElement('button');
+                    btnApprove.type = 'button';
+                    btnApprove.className = 'btn-icon';
+                    btnApprove.title = 'Zatwierdź';
+                    btnApprove.innerHTML = '<svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+                    btnApprove.addEventListener('click', async () => {
+                        const planId = tr.dataset.planId || it._id;
+                        if (!it.orderId || !it.kind || !planId) return;
+                        try {
+                            // Update zamowienia to set field to "Finish"
+                            const res = await fetch(`/api/zamowienia/${encodeURIComponent(it.orderId)}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ [it.kind]: 'Finish' })
+                            });
+                            if (!res.ok) throw new Error('Failed to update order');
+                            // Delete assignment from plan_produkcji
+                            const deleteRes = await fetch(`/api/plan/${encodeURIComponent(planId)}`, {
+                                method: 'DELETE'
+                            });
+                            if (!deleteRes.ok) throw new Error('Failed to delete assignment');
+                            // Remove row from UI
+                            tr.remove();
+                            // Re-evaluate sections
+                            evaluateAllSections();
+                        } catch (err) {
+                            console.error('Error approving:', err);
+                            alert('Błąd przy zatwierdzaniu');
+                        }
+                    });
+                    const btnReject = document.createElement('button');
+                    btnReject.type = 'button';
+                    btnReject.className = 'btn-icon';
+                    btnReject.title = 'Odrzuć';
+                    btnReject.innerHTML = '<svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>';
+                    const actionsSpan = document.createElement('span');
+                    actionsSpan.className = 'actions';
+                    actionsSpan.appendChild(btnApprove);
+                    actionsSpan.appendChild(btnReject);
+                    tdAct.appendChild(actionsSpan);
+                    tr.appendChild(tdNr);
+                    tr.appendChild(tdPri);
+                    tr.appendChild(tdUw);
+                    tr.appendChild(tdAct);
+                    tb.appendChild(tr);
+                    // Ensure the section opens when data is present
+                    const details = tb.closest('details');
+                    if (details) { details.open = true; }
+                });
+
+                // If any tbody ended empty, restore one template row
+                tbodyIds.forEach(id => {
+                    const tb = document.getElementById(id);
+                    if (!tb) return;
+                    if (tb.children.length === 0 && templateById[id]) {
+                        tb.appendChild(templateById[id]);
+                    }
+                });
+
+                // Re-evaluate open/closed state after rendering (defer to ensure DOM is painted)
+                setTimeout(() => { try { evaluateAllSections(); } catch {} }, 0);
+
+            } catch {}
+        }
+    </script>
+</head>
+<body>
+    <div id="header-container" 
+         data-title="Plan produkcji">
+    </div>
+    <div class="container">
+
+        <details class="section" open>
+            <summary class="section-title"><span class="chevron">❯</span><span>Wytłaczarka I</span></summary>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.Zlecenia</th>
+                            <th>Priorytet</th>
+                            <th>Uwagi</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-wytlaczarka-1">
+                        <tr>
+                            <td><input class="row-input" type="text" aria-label="Wytłaczarka I - Nr.Zlecenia" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="Wytłaczarka I - Priorytet" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="Wytłaczarka I - Uwagi" placeholder=""></td>
+                            <td>
+                                <span class="actions">
+                                    <button type="button" class="btn-icon" title="Zatwierdź" aria-label="Wytłaczarka I - Zatwierdź">
+                                        <svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                                    </button>
+                                    <button type="button" class="btn-icon" title="Odrzuć" aria-label="Wytłaczarka I - Odrzuć">
+                                        <svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <details class="section" open>
+            <summary class="section-title"><span class="chevron">❯</span><span>Wytłaczarka 2</span></summary>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.Zlecenia</th>
+                            <th>Priorytet</th>
+                            <th>Uwagi</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-wytlaczarka-2">
+                        <tr>
+                            <td><input class="row-input" type="text" aria-label="Wytłaczarka 2 - Nr.Zlecenia" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="Wytłaczarka 2 - Priorytet" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="Wytłaczarka 2 - Uwagi" placeholder=""></td>
+                            <td>
+                                <span class="actions">
+                                    <button type="button" class="btn-icon" title="Zatwierdź" aria-label="Wytłaczarka 2 - Zatwierdź">
+                                        <svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                                    </button>
+                                    <button type="button" class="btn-icon" title="Odrzuć" aria-label="Wytłaczarka 2 - Odrzuć">
+                                        <svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <details class="section" open>
+            <summary class="section-title"><span class="chevron">❯</span><span>AUTOMATY: Arvor</span></summary>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.Zlecenia</th>
+                            <th>Priorytet</th>
+                            <th>Uwagi</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-arvor">
+                        <tr>
+                            <td><input class="row-input" type="text" aria-label="AUTOMATY Arvor - Nr.Zlecenia" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="AUTOMATY Arvor - Priorytet" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="AUTOMATY Arvor - Uwagi" placeholder=""></td>
+                            <td>
+                                <span class="actions">
+                                    <button type="button" class="btn-icon" title="Zatwierdź" aria-label="AUTOMATY Arvor - Zatwierdź">
+                                        <svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                                    </button>
+                                    <button type="button" class="btn-icon" title="Odrzuć" aria-label="AUTOMATY Arvor - Odrzuć">
+                                        <svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <details class="section" open>
+            <summary class="section-title"><span class="chevron">❯</span><span>AUTOMATY: Średni</span></summary>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.Zlecenia</th>
+                            <th>Priorytet</th>
+                            <th>Uwagi</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-sredni">
+                        <tr>
+                            <td><input class="row-input" type="text" aria-label="AUTOMATY Średni - Nr.Zlecenia" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="AUTOMATY Średni - Priorytet" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="AUTOMATY Średni - Uwagi" placeholder=""></td>
+                            <td>
+                                <span class="actions">
+                                    <button type="button" class="btn-icon" title="Zatwierdź" aria-label="AUTOMATY Średni - Zatwierdź">
+                                        <svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                                    </button>
+                                    <button type="button" class="btn-icon" title="Odrzuć" aria-label="AUTOMATY Średni - Odrzuć">
+                                        <svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <details class="section" open>
+            <summary class="section-title"><span class="chevron">❯</span><span>Mamata/Viket</span></summary>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.Zlecenia</th>
+                            <th>Priorytet</th>
+                            <th>Uwagi</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-mamata">
+                        <tr>
+                            <td><input class="row-input" type="text" aria-label="Mamata/Viket - Nr.Zlecenia" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="Mamata/Viket - Priorytet" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="Mamata/Viket - Uwagi" placeholder=""></td>
+                            <td>
+                                <span class="actions">
+                                    <button type="button" class="btn-icon" title="Zatwierdź" aria-label="Mamata/Viket - Zatwierdź">
+                                        <svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                                    </button>
+                                    <button type="button" class="btn-icon" title="Odrzuć" aria-label="Mamata/Viket - Odrzuć">
+                                        <svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <details class="section" open>
+            <summary class="section-title"><span class="chevron">❯</span><span>DRUKARNIE: Carraro</span></summary>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.Zlecenia</th>
+                            <th>Priorytet</th>
+                            <th>Uwagi</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-carraro">
+                        <tr>
+                            <td><input class="row-input" type="text" aria-label="DRUKARNIE Carraro - Nr.Zlecenia" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="DRUKARNIE Carraro - Priorytet" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="DRUKARNIE Carraro - Uwagi" placeholder=""></td>
+                            <td>
+                                <span class="actions">
+                                    <button type="button" class="btn-icon" title="Zatwierdź" aria-label="DRUKARNIE Carraro - Zatwierdź">
+                                        <svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                                    </button>
+                                    <button type="button" class="btn-icon" title="Odrzuć" aria-label="DRUKARNIE Carraro - Odrzuć">
+                                        <svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <details class="section" open>
+            <summary class="section-title"><span class="chevron">❯</span><span>DRUKARNIE: Manzoni</span></summary>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.Zlecenia</th>
+                            <th>Priorytet</th>
+                            <th>Uwagi</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-manzoni">
+                        <tr>
+                            <td><input class="row-input" type="text" aria-label="DRUKARNIE Manzoni - Nr.Zlecenia" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="DRUKARNIE Manzoni - Priorytet" placeholder=""></td>
+                            <td><input class="row-input" type="text" aria-label="DRUKARNIE Manzoni - Uwagi" placeholder=""></td>
+                            <td>
+                                <span class="actions">
+                                    <button type="button" class="btn-icon" title="Zatwierdź" aria-label="DRUKARNIE Manzoni - Zatwierdź">
+                                        <svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                                    </button>
+                                    <button type="button" class="btn-icon" title="Odrzuć" aria-label="DRUKARNIE Manzoni - Odrzuć">
+                                        <svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+    </div>
+</body>
+</html>
+
+

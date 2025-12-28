@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nowe zamówienie - Karta Wyrobu</title>
+    <style>
+        :root { color-scheme: light dark; }
+        html[data-theme="light"] { color-scheme: light; }
+        html[data-theme="dark"] { color-scheme: dark; }
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+            background: Canvas;
+            color: CanvasText;
+            padding: 20px 0 80px 0; /* Extra padding at bottom for fixed buttons */
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+        /* Header styles moved to header.css */
+        h1 {
+            font-size: 24px;
+        }
+        .card {
+            background: Canvas;
+            color: CanvasText;
+            border: 1px solid rgba(127,127,127,.25);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.08);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .form-section {
+            margin-bottom: 32px;
+        }
+        .form-section:last-child {
+            margin-bottom: 0;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid color-mix(in oklab, CanvasText 20%, transparent);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: CanvasText;
+        }
+        label .required {
+            color: #ef4444;
+            margin-left: 4px;
+        }
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid rgba(127,127,127,.35);
+            border-radius: 8px;
+            background: Canvas;
+            color: CanvasText;
+            font: inherit;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .radio-group,
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .radio-option,
+        .checkbox-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="radio"],
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .form-actions-fixed {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            background: Canvas;
+            border-top: 1px solid rgba(127,127,127,.25);
+            box-shadow: 0 -2px 8px rgba(0,0,0,.1);
+            z-index: 1000;
+        }
+        
+        .btn {
+            appearance: none;
+            border: 1px solid rgba(127,127,127,.35);
+            background: color-mix(in oklab, Canvas 96%, transparent);
+            color: CanvasText;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            background: color-mix(in oklab, Canvas 92%, transparent);
+        }
+        .btn-primary {
+            background: #60a5fa;
+            color: white;
+            border-color: #60a5fa;
+        }
+        .btn-primary:hover {
+            background: #4a9eff;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .toast {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 16px;
+            background: color-mix(in oklab, CanvasText 5%, Canvas);
+            color: CanvasText;
+            border: 1px solid rgba(127,127,127,.3);
+            padding: 12px 18px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.15);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s ease;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        .toast.error {
+            background: color-mix(in oklab, #ef4444 10%, Canvas);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .toast.success {
+            background: color-mix(in oklab, #10b981 10%, Canvas);
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: color-mix(in oklab, CanvasText 70%, transparent);
+        }
+        .switch {
+            position: relative;
+            width: 40px;
+            height: 22px;
+            display: inline-block;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: color-mix(in oklab, CanvasText 12%, Canvas);
+            border-radius: 999px;
+            transition: background .2s ease;
+        }
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            top: 2px;
+            background: CanvasText;
+            border-radius: 50%;
+            transition: transform .2s ease;
+        }
+        .switch input:checked + .slider {
+            background: color-mix(in oklab, #60a5fa 50%, Canvas);
+        }
+        .switch input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+        .tools {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        <link rel="stylesheet" href="/header.css">
+    </style>
+    <script src="/header.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="header-container" 
+             data-title="Nowe zamówienie" 
+             data-crumbs='/ <a href="/">Zamówienia</a> / Karta Wyrobu'>
+        </div>
+
+        <form id="order-form">
+            <!-- Podstawowe Dane zamówienia -->
+            <div class="card">
+                <div class="form-section">
+                    <h2 class="section-title">Podstawowe Dane zamówienia</h2>
+                    
+                    <div class="form-group">
+                        <label for="zleceniobiorca">Zleceniobiorca <span class="required">*</span></label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="zlec-mp" name="Zleceniobiorca" value="MP" required>
+                                <label for="zlec-mp">MP</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="zlec-bc" name="Zleceniobiorca" value="BC" required>
+                                <label for="zlec-bc">BC</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="zlec-bd" name="Zleceniobiorca" value="BD" required>
+                                <label for="zlec-bd">BD</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="zlec-ml" name="Zleceniobiorca" value="ML" required>
+                                <label for="zlec-ml">ML</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="zlec-kk" name="Zleceniobiorca" value="KK" required>
+                                <label for="zlec-kk">KK</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="priorytet">Priorytet</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="prio-duza" name="Priorytet" value="Duża ilość na magazynie">
+                                <label for="prio-duza">Duża ilość na magazynie</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="prio-1" name="Priorytet" value="1">
+                                <label for="prio-1">1</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="prio-2" name="Priorytet" value="2">
+                                <label for="prio-2">2</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="prio-3" name="Priorytet" value="3">
+                                <label for="prio-3">3</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="prio-4" name="Priorytet" value="4">
+                                <label for="prio-4">4</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="prio-5" name="Priorytet" value="5">
+                                <label for="prio-5">5</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="prio-brak" name="Priorytet" value="BRAK NA MAGAZYNIE">
+                                <label for="prio-brak">BRAK NA MAGAZYNIE</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="numer-zlecenia">Numer zlecenia <span class="required">*</span></label>
+                        <input type="text" id="numer-zlecenia" name="Numer zlecenia" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="zleceniodawca">Zleceniodawca</label>
+                        <input type="text" id="zleceniodawca" name="Zleceniodawca">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dane wyrobu gotowego -->
+            <div class="card">
+                <div class="form-section">
+                    <h2 class="section-title">Dane wyrobu gotowego</h2>
+                    
+                    <div class="form-group">
+                        <label for="nazwa-wyrobu">Nazwa wyrobu gotowego</label>
+                        <select id="nazwa-wyrobu" name="Nazwa wyrobu gotowego">
+                            <option value="">-- Wybierz --</option>
+                            <option value="Taśma PE">Taśma PE</option>
+                            <option value="Półrękaw PE">Półrękaw PE</option>
+                            <option value="Rękaw PE">Rękaw PE</option>
+                            <option value="Worek PE">Worek PE</option>
+                            <option value="Taśma PP">Taśma PP</option>
+                            <option value="Worek PP">Worek PP</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wymiar-wyrobu">Wymiar wyrobu gotowego</label>
+                        <input type="text" id="wymiar-wyrobu" name="Wymiar wyrobu gotowego" placeholder="np. 400x600">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ilosc-jednostka">Ilość (kg/szt/mb)</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="unit-kg" name="Ilość jednostka" value="Kilogramy">
+                                <label for="unit-kg">Kilogramy</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="unit-szt" name="Ilość jednostka" value="Sztuk">
+                                <label for="unit-szt">Sztuk</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="unit-mb" name="Ilość jednostka" value="Metry bieżące">
+                                <label for="unit-mb">Metry bieżące</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="unit-other" name="Ilość jednostka" value="Other">
+                                <label for="unit-other">Inne</label>
+                            </div>
+                        </div>
+                        <input type="text" id="ilosc-wartosc" name="Ilość" placeholder="Podaj wartość" style="margin-top: 8px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wytłaczarka -->
+            <div class="card">
+                <div class="form-section">
+                    <h2 class="section-title">Wytłaczarka - Parametry folii produkowanej na wytłaczarce</h2>
+                    
+                    <div class="form-group">
+                        <label for="barwnik">Barwnik</label>
+                        <input type="text" id="barwnik" name="Barwnik">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="jonizacja">Jonizacja</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="jon-tak" name="Jonizacja" value="TAK">
+                                <label for="jon-tak">TAK</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="jon-nie" name="Jonizacja" value="NIE">
+                                <label for="jon-nie">NIE</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tworzywo">Tworzywo</label>
+                        <input type="text" id="tworzywo" name="Tworzywo">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="szerokosc-rekawa">Całkowita szerokość rękawa</label>
+                        <input type="text" id="szerokosc-rekawa" name="Całkowita szerokość rękawa">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="zakatka-boczna">Zakładka boczna</label>
+                        <input type="text" id="zakatka-boczna" name="Zakładka boczna">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="grubosc">Grubość</label>
+                        <input type="text" id="grubosc" name="Grubość">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rodzaj-wyrobu">Rodzaj wyrobu</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="rodzaj-rekaw" name="Rodzaj wyrobu" value="Rękaw">
+                                <label for="rodzaj-rekaw">Rękaw</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="rodzaj-polrekaw" name="Rodzaj wyrobu" value="Półrękaw">
+                                <label for="rodzaj-polrekaw">Półrękaw</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="rodzaj-tasma" name="Rodzaj wyrobu" value="Taśma">
+                                <label for="rodzaj-tasma">Taśma</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nawoj-jednostka">Nawój na wałek (jaki/ile)</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="nawoj-kg" name="Nawój jednostka" value="KG">
+                                <label for="nawoj-kg">KG</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="nawoj-mb" name="Nawój jednostka" value="MB">
+                                <label for="nawoj-mb">MB</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="nawoj-other" name="Nawój jednostka" value="Other">
+                                <label for="nawoj-other">Inne</label>
+                            </div>
+                        </div>
+                        <input type="text" id="nawoj-wartosc" name="Nawój wartość" placeholder="Podaj wartość" style="margin-top: 8px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="uwagi-wytlaczarka">UWAGI</label>
+                        <textarea id="uwagi-wytlaczarka" name="UWAGI Wytłaczarka"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drukarnia -->
+            <div class="card">
+                <div class="form-section">
+                    <h2 class="section-title">Drukarnia - Parametry na drukarni</h2>
+                    
+                    <div class="form-group">
+                        <label for="drukarnia">DRUKARNIA</label>
+                        <input type="text" id="drukarnia" name="DRUKARNIA">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Automaty Tnące -->
+            <div class="card">
+                <div class="form-section">
+                    <h2 class="section-title">Automaty Tnące - Parametry na automatach</h2>
+                    
+                    <div class="form-group">
+                        <label for="szerokosc-automaty">Szerokość</label>
+                        <input type="text" id="szerokosc-automaty" name="Szerokość Automaty">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wysokosc-automaty">Wysokość</label>
+                        <input type="text" id="wysokosc-automaty" name="Wysokość Automaty">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="zakatka-denna">Zakładka denna</label>
+                        <input type="text" id="zakatka-denna" name="Zakładka denna">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="zrywka-klapka">Zrywka/Klapka</label>
+                        <input type="text" id="zrywka-klapka" name="Zrywka/Klapka">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="zgrzew">Zgrzew</label>
+                        <div class="checkbox-group">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="zgrzew-boczny" name="Zgrzew" value="Zgrzew boczny">
+                                <label for="zgrzew-boczny">Zgrzew boczny</label>
+                            </div>
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="zgrzew-denny" name="Zgrzew" value="Zgrzew denny">
+                                <label for="zgrzew-denny">Zgrzew denny</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Parametry dodatkowe</label>
+                        <div class="checkbox-group">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="param-zimny-noz" name="Zimny nóż" value="Zimny nóż">
+                                <label for="param-zimny-noz">Zimny nóż</label>
+                            </div>
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="param-tasma-klejaca" name="Taśma klejąca" value="Taśma klejąca">
+                                <label for="param-tasma-klejaca">Taśma klejąca</label>
+                            </div>
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="param-zrywka" name="Zrywka" value="Zrywka">
+                                <label for="param-zrywka">Zrywka</label>
+                            </div>
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="param-opaski" name="Opaski" value="Opaski">
+                                <label for="param-opaski">Opaski</label>
+                            </div>
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="param-klipsy" name="Klipsy" value="Klipsy">
+                                <label for="param-klipsy">Klipsy</label>
+                            </div>
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="param-druty" name="Druty" value="Druty">
+                                <label for="param-druty">Druty</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="perforacja-typ">Perforacja</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="perf-makro" name="Perforacja typ" value="Makro">
+                                <label for="perf-makro">Makro (ile otworów)</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="perf-mikro" name="Perforacja typ" value="Mikro">
+                                <label for="perf-mikro">Mikro (ile otworów)</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="perf-other" name="Perforacja typ" value="Other">
+                                <label for="perf-other">Inne</label>
+                            </div>
+                        </div>
+                        <input type="text" id="perforacja-wartosc" name="Perforacja wartość" placeholder="Podaj wartość" style="margin-top: 8px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pakowanie-typ">Pakowanie (szt.paczek/szt.zbiorowych)</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="pak-worek" name="Pakowanie" value="Worek">
+                                <label for="pak-worek">Worek</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="pak-karton" name="Pakowanie" value="Karton">
+                                <label for="pak-karton">Karton</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="pak-other" name="Pakowanie" value="Other">
+                                <label for="pak-other">Inne</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </form>
+        
+        <!-- Fixed buttons at bottom center -->
+        <div class="form-actions-fixed">
+            <button type="button" class="btn" id="btn-clear">Wyczyść formularz</button>
+            <button type="submit" form="order-form" class="btn btn-primary" id="btn-submit">Zapisz zamówienie</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + (isError ? 'error' : 'success');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Theme toggle
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggle = document.getElementById('light-toggle');
+            try {
+                const saved = localStorage.getItem('theme');
+                if (saved === 'light') {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                    if (toggle) toggle.checked = true;
+                }
+            } catch {}
+
+            if (toggle) {
+                toggle.addEventListener('change', () => {
+                    const isLight = toggle.checked;
+                    if (isLight) {
+                        document.documentElement.setAttribute('data-theme', 'light');
+                        try { localStorage.setItem('theme', 'light'); } catch {}
+                    } else {
+                        document.documentElement.removeAttribute('data-theme');
+                        try { localStorage.removeItem('theme'); } catch {}
+                    }
+                });
+            }
+
+            // Form submission
+            const form = document.getElementById('order-form');
+            const submitBtn = document.getElementById('btn-submit');
+            const clearBtn = document.getElementById('btn-clear');
+            
+            // Make sure buttons are always visible
+            if (submitBtn) {
+                submitBtn.setAttribute('form', 'order-form');
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Collect form data
+                const formData = new FormData(form);
+                const data = {};
+
+                // Collect radio buttons
+                const radioGroups = {};
+                form.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+                    if (radio.name) {
+                        radioGroups[radio.name] = radio.value;
+                    }
+                });
+
+                // Collect checkboxes
+                const checkboxes = {};
+                form.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                    if (checkbox.name) {
+                        if (!checkboxes[checkbox.name]) {
+                            checkboxes[checkbox.name] = [];
+                        }
+                        checkboxes[checkbox.name].push(checkbox.value);
+                    }
+                });
+
+                // Combine all data
+                for (const [key, value] of formData.entries()) {
+                    if (value.trim()) {
+                        data[key] = value.trim();
+                    }
+                }
+
+                // Add radio values
+                Object.assign(data, radioGroups);
+
+                // Add checkbox values (as arrays or comma-separated)
+                Object.keys(checkboxes).forEach(key => {
+                    if (checkboxes[key].length === 1) {
+                        data[key] = checkboxes[key][0];
+                    } else if (checkboxes[key].length > 1) {
+                        data[key] = checkboxes[key].join(', ');
+                    }
+                });
+
+                // Validate required fields
+                if (!data['Zleceniobiorca']) {
+                    showToast('Zleceniobiorca jest wymagany', true);
+                    return;
+                }
+                if (!data['Numer zlecenia']) {
+                    showToast('Numer zlecenia jest wymagany', true);
+                    return;
+                }
+
+                // Disable submit button
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Zapisywanie...';
+
+                try {
+                    const response = await fetch('/api/zamowienia', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Błąd zapisu');
+                    }
+
+                    if (result.ok) {
+                        showToast('Zamówienie zostało zapisane pomyślnie!');
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 1500);
+                    } else {
+                        throw new Error(result.error || 'Błąd zapisu');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('Błąd podczas zapisywania zamówienia: ' + error.message, true);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Zapisz zamówienie';
+                }
+            });
+
+            // Clear form
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    if (confirm('Czy na pewno chcesz wyczyścić formularz?')) {
+                        form.reset();
+                        showToast('Formularz został wyczyszczony');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
+

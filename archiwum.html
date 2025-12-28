@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Archiwum</title>
+    <style>
+        :root { color-scheme: light dark; }
+        html[data-theme="light"] { color-scheme: light; }
+        html[data-theme="dark"] { color-scheme: dark; }
+        body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+        .container { max-width: none; width: 100%; margin: 16px 0; padding: 0 16px; }
+        h1 { font-size: 20px; margin: 0; font-weight: 600; }
+        /* Header styles moved to header.css */
+        .card { background: Canvas; color: CanvasText; border: 1px solid rgba(127,127,127,.25); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        .table-wrap { width: 100%; max-height: 80vh; overflow: auto; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; }
+        thead th { position: sticky; top: 0; z-index: 2; background: color-mix(in oklab, Canvas 92%, transparent); backdrop-filter: blur(6px); text-align: left; font-weight: 600; white-space: normal; word-break: break-word; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid rgba(127,127,127,.2); white-space: nowrap; min-width: 140px; }
+        thead th:first-child { border-top-left-radius: 12px; }
+        thead th:last-child { border-top-right-radius: 12px; }
+        table.header-shadow thead th { box-shadow: 0 2px 0 rgba(127,127,127,.25), 0 6px 12px rgba(0,0,0,.08); }
+        tbody tr:nth-child(even) { background: color-mix(in oklab, Canvas 96%, transparent); }
+        tbody tr:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
+        .skeleton { display: inline-block; height: 1em; width: 8ch; border-radius: 4px; background: linear-gradient(90deg, rgba(127,127,127,.15), rgba(127,127,127,.25), rgba(127,127,127,.15)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+        td input { width: 100%; max-width: 360px; border: 0 !important; box-shadow: none !important; background: transparent; color: inherit; padding: 6px 6px; border-radius: 6px; outline: none; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        td input:focus { outline: 2px solid #60a5fa; outline-offset: -2px; background: color-mix(in oklab, Canvas 98%, transparent); box-shadow: none; }
+        .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: color-mix(in oklab, CanvasText 5%, Canvas); color: CanvasText; border: 1px solid rgba(127,127,127,.3); padding: 10px 14px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .2s ease; font-size: 14px; }
+        .toast.show { opacity: 1; }
+        .footer { padding: 10px 12px; font-size: 12px; color: color-mix(in oklab, CanvasText 65%, transparent); }
+        .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); }
+        thead .sticky-right { background: color-mix(in oklab, Canvas 92%, transparent); }
+        .actions { display: inline-flex; gap: 8px; }
+        .btn-icon { appearance: none; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; padding: 6px; border-radius: 8px; cursor: pointer; line-height: 0; }
+        .btn-icon:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
+        .icon { width: 16px; height: 16px; display: inline-block; }
+        .icon-restore { color: #10b981; }
+        .icon-print { color: #f59e0b; }
+        <link rel="stylesheet" href="/header.css">
+    </style>
+    <script src="/header.js"></script>
+    <script>
+        function showToast(message) {
+            const t = document.getElementById('toast');
+            t.textContent = message;
+            t.classList.add('show');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove('show'), 1600);
+        }
+        function updateHeaderShadow() {
+            const table = document.querySelector('table');
+            const thead = document.querySelector('thead');
+            if (!table || !thead) return;
+            const top = thead.getBoundingClientRect().top;
+            if (top <= 0) { table.classList.add('header-shadow'); } else { table.classList.remove('header-shadow'); }
+        }
+        async function loadHeaders() {
+            const tableHeadRow = document.getElementById('head-row');
+            try {
+                const res = await fetch('/api/archiwum/headers');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                const headers = Array.isArray(data.headers) ? data.headers : [];
+                tableHeadRow.innerHTML = '';
+                headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; tableHeadRow.appendChild(th); });
+                const thActions = document.createElement('th'); thActions.textContent = 'Akcje'; thActions.className = 'sticky-right'; tableHeadRow.appendChild(thActions);
+                return headers;
+            } catch (e) {
+                tableHeadRow.innerHTML = '';
+                const th = document.createElement('th'); th.textContent = 'Nie udało się wczytać nagłówków'; tableHeadRow.appendChild(th);
+                return [];
+            }
+        }
+        async function loadRows(headers) {
+            const tbody = document.getElementById('body-rows');
+            tbody.innerHTML = '';
+            try {
+                const res = await fetch('/api/archiwum?page=1&pageSize=50');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                const items = Array.isArray(data.items) ? data.items : [];
+                if (items.length === 0) {
+                    const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(1, headers.length); td.textContent = 'Brak danych.'; tr.appendChild(td); tbody.appendChild(tr); return;
+                }
+                items.forEach(doc => {
+                    const tr = document.createElement('tr'); const rowId = (doc._id && String(doc._id)) || ''; tr.dataset.id = rowId;
+                    headers.forEach(h => {
+                        const td = document.createElement('td'); const v = doc[h]; const valueStr = v === undefined || v === null ? '' : String(v);
+                        if (h === 'Numer zlecenia' && rowId) { const a = document.createElement('a'); a.href = `/karta-wyrobu?id=${encodeURIComponent(rowId)}`; a.textContent = valueStr || '(brak)'; a.title = 'Otwórz kartę wyrobu'; td.appendChild(a); } else { const input = document.createElement('input'); input.type = 'text'; input.value = valueStr; input.dataset.field = h; input.disabled = true; td.appendChild(input); }
+                        tr.appendChild(td);
+                    });
+                    const tdActions = document.createElement('td'); tdActions.className = 'sticky-right'; const wrap = document.createElement('span'); wrap.className = 'actions';
+                    const btnRestore = document.createElement('button'); btnRestore.type = 'button'; btnRestore.className = 'btn-icon'; btnRestore.title = 'Przywróć'; btnRestore.innerHTML = '<svg class="icon icon-restore" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5V2L7 7l5 5V9c3.309 0 6 2.691 6 6a6 6 0 1 1-6-6Z"/></svg>';
+                    btnRestore.addEventListener('click', async () => {
+                        if (!rowId) return; try { showToast('Przywracanie...'); const res = await fetch(`/api/archiwum/${encodeURIComponent(rowId)}/restore`, { method: 'POST' }); if (!res.ok) throw new Error('HTTP ' + res.status); const data = await res.json(); if (data && data.ok) { showToast('Przywrócono.'); tr.remove(); } else { showToast('Błąd przywracania.'); } } catch (e) { showToast('Błąd przywracania.'); }
+                    });
+                    const btnPrint = document.createElement('button'); btnPrint.type = 'button'; btnPrint.className = 'btn-icon'; btnPrint.title = 'Drukuj kartę'; btnPrint.innerHTML = '<svg class="icon icon-print" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 7V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3h-2V4H8v3H6Zm-2 2h16a2 2 0 0 1 2 2v5h-4v4H8v-4H4v-5a2 2 0 0 1 2-2Zm4 11h8v-4H8v4Zm10-9h2v2h-2v-2Z"/></svg>';
+                    btnPrint.addEventListener('click', () => { if (rowId) { window.open(`/karta-wyrobu?id=${encodeURIComponent(rowId)}&print=1`, '_blank'); } });
+                    wrap.appendChild(btnRestore); wrap.appendChild(btnPrint); tdActions.appendChild(wrap); tr.appendChild(tdActions); tbody.appendChild(tr);
+                });
+            } catch (e) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(1, headers.length); td.textContent = 'Nie udało się wczytać danych.'; tr.appendChild(td); tbody.appendChild(tr); }
+        }
+        document.addEventListener('DOMContentLoaded', async () => {
+            const headers = await loadHeaders(); await loadRows(headers); updateHeaderShadow();
+        });
+        document.addEventListener('scroll', updateHeaderShadow, { passive: true });
+        window.addEventListener('resize', updateHeaderShadow, { passive: true });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div id="header-container" 
+             data-title="Archiwum">
+        </div>
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr id="head-row">
+                            <th><span class="skeleton" style="width:14ch"></span></th>
+                            <th><span class="skeleton" style="width:10ch"></span></th>
+                            <th><span class="skeleton" style="width:8ch"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="body-rows"></tbody>
+                </table>
+            </div>
+            <div class="footer">Źródło: baza danych MongoDB „zamowienia_archiwum”</div>
+        </div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
+
+

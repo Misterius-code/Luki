@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Zamówienia</title>
+    <style>
+        :root { color-scheme: light dark; }
+        html[data-theme="light"] { color-scheme: light; }
+        html[data-theme="dark"] { color-scheme: dark; }
+        body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+        .container { max-width: none; width: 100%; margin: 16px 0; padding: 0 16px; }
+        h1 { font-size: 20px; margin: 0; font-weight: 600; }
+        /* Header styles moved to header.css */
+        .card { background: Canvas; color: CanvasText; border: 1px solid rgba(127,127,127,.25); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        .table-wrap { width: 100%; max-height: 80vh; overflow-x: auto; overflow-y: auto; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+        thead th { position: sticky; top: 0; z-index: 2; background: color-mix(in oklab, Canvas 92%, transparent); backdrop-filter: blur(6px); text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        th { position: relative; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid rgba(127,127,127,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        th { min-width: 30px; } /* Allow very narrow columns */
+        td { min-width: 0; } /* Allow cells to be smaller than content */
+        td a, td select, td input[type="text"] { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; width: 100%; }
+        td input[type="text"] { text-overflow: ellipsis; }
+        /* Column resize handle */
+        .resize-handle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            cursor: col-resize;
+            user-select: none;
+            z-index: 10;
+            background: transparent;
+        }
+        .resize-handle:hover {
+            background: white;
+            opacity: 0.8;
+        }
+        .resize-handle.resizing {
+            background: white;
+            opacity: 1;
+        }
+        th.sticky-right .resize-handle {
+            display: none; /* Don't allow resizing the sticky actions column */
+        }
+        thead th:first-child { border-top-left-radius: 12px; }
+        thead th:last-child { border-top-right-radius: 12px; }
+        table.header-shadow thead th { box-shadow: 0 2px 0 rgba(127,127,127,.25), 0 6px 12px rgba(0,0,0,.08); }
+        tbody tr:nth-child(even) { background: color-mix(in oklab, Canvas 96%, transparent); }
+        tbody tr:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
+        .skeleton { display: inline-block; height: 1em; width: 8ch; border-radius: 4px; background: linear-gradient(90deg, rgba(127,127,127,.15), rgba(127,127,127,.25), rgba(127,127,127,.15)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+        td input { width: 100%; max-width: 360px; border: 0 !important; box-shadow: none !important; background: transparent; color: inherit; padding: 6px 6px; border-radius: 6px; outline: none; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        td input:focus { outline: 2px solid #60a5fa; outline-offset: -2px; background: color-mix(in oklab, Canvas 98%, transparent); box-shadow: none; }
+        .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: color-mix(in oklab, CanvasText 5%, Canvas); color: CanvasText; border: 1px solid rgba(127,127,127,.3); padding: 10px 14px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .2s ease; font-size: 14px; }
+        .toast.show { opacity: 1; }
+        td input { width: 100%; max-width: 360px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; padding: 6px 8px; border-radius: 8px; outline: none; }
+        td input:focus { border-color: color-mix(in oklab, CanvasText 50%, transparent); background: color-mix(in oklab, Canvas 96%, transparent); }
+        td select { width: 100%; max-width: 360px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; padding: 6px 8px; border-radius: 8px; outline: none; }
+        td select:focus { border-color: color-mix(in oklab, CanvasText 50%, transparent); background: color-mix(in oklab, Canvas 96%, transparent); }
+        .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: color-mix(in oklab, CanvasText 5%, Canvas); color: CanvasText; border: 1px solid rgba(127,127,127,.3); padding: 10px 14px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .2s ease; font-size: 14px; }
+        .toast.show { opacity: 1; }
+        .footer { padding: 10px 12px; font-size: 12px; color: color-mix(in oklab, CanvasText 65%, transparent); }
+        /* Sticky actions column on the right */
+        .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); min-width: 120px; width: 120px; }
+        thead .sticky-right { background: color-mix(in oklab, Canvas 92%, transparent); }
+        thead th.sticky-right { position: sticky; top: 0; right: 0; z-index: 5; min-width: 120px; width: 120px; }
+        .actions { display: inline-flex; gap: 8px; }
+        .btn-icon { appearance: none; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; padding: 6px; border-radius: 8px; cursor: pointer; line-height: 0; }
+        .btn-icon:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
+        .icon { width: 16px; height: 16px; display: inline-block; }
+        .icon-archive { color: #ef4444; }
+        .icon-print { color: #f59e0b; }
+        .icon-settings { color: color-mix(in oklab, CanvasText 70%, transparent); }
+        /* Finish cell styling */
+        td select.finish-cell,
+        td.finish-cell select {
+            background: #10b981;
+            color: white;
+            font-weight: 600;
+        }
+        td select.finish-cell option,
+        td.finish-cell select option {
+            background: white;
+            color: CanvasText;
+        }
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: Canvas;
+            color: CanvasText;
+            border: 1px solid rgba(127,127,127,.25);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.2);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(127,127,127,.25);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+        .modal-close {
+            appearance: none;
+            border: none;
+            background: transparent;
+            color: CanvasText;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 0;
+            border-radius: 6px;
+        }
+        .modal-close:hover {
+            background: color-mix(in oklab, CanvasText 8%, Canvas);
+        }
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .columns-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .column-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 200px;
+            padding: 8px;
+        }
+        .column-hidden .column-content {
+            min-height: 300px;
+        }
+        .column-content:empty::before {
+            content: 'Przeciągnij kolumny tutaj';
+            padding: 40px 20px;
+            text-align: center;
+            color: color-mix(in oklab, CanvasText 40%, transparent);
+            font-size: 13px;
+            border: 2px dashed rgba(127,127,127,.3);
+            border-radius: 8px;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .column-title {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 8px 12px;
+            background: color-mix(in oklab, CanvasText 8%, Canvas);
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        .column-visible .column-title { color: #10b981; }
+        .column-hidden .column-title { color: #ef4444; }
+        .header-item {
+            padding: 10px 12px;
+            background: color-mix(in oklab, Canvas 96%, transparent);
+            border: 1px solid rgba(127,127,127,.25);
+            border-radius: 8px;
+            cursor: grab;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        .header-item:hover {
+            background: color-mix(in oklab, Canvas 92%, transparent);
+            border-color: #60a5fa;
+        }
+        .header-item:active {
+            cursor: grabbing;
+        }
+        .header-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        .column.drag-over {
+            background: color-mix(in oklab, #60a5fa 5%, Canvas);
+            border-radius: 8px;
+            padding: 8px;
+            min-height: 200px;
+        }
+        .column.drag-over.column-hidden {
+            min-height: 300px;
+        }
+        .column.drag-over .column-content {
+            min-height: 180px;
+        }
+        .column.drag-over.column-hidden .column-content {
+            min-height: 280px;
+        }
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(127,127,127,.25);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: #60a5fa;
+            color: white;
+            border-color: #60a5fa;
+        }
+        .btn-primary:hover {
+            background: #4a9eff;
+        }
+        /* Profile dropdown styles moved to header.css */
+    </style>
+    <script>
+        // Column visibility + ordering management
+        let allHeaders = [];
+        // Persisted state:
+        // - headerOrder: array with desired global order of headers
+        // - hiddenHeaders: set of headers to hide
+        // - columnWidths: object mapping header names to widths
+        let headerOrder = [];
+        let hiddenHeaders = new Set();
+        let columnWidths = {};
+
+        async function loadColumnVisibility() {
+            try {
+                // Try to load from server (user account)
+                const res = await fetch('/api/user/preferences');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.ok && data.preferences && data.preferences.columnVisibility) {
+                        const parsed = data.preferences.columnVisibility;
+                        headerOrder = Array.isArray(parsed.order) ? parsed.order.slice() : [];
+                        hiddenHeaders = new Set(parsed.hidden || []);
+                        columnWidths = parsed.widths && typeof parsed.widths === 'object' ? parsed.widths : {};
+                        return;
+                    }
+                }
+                
+                // Fallback to localStorage if server fails
+                const saved = localStorage.getItem('columnVisibility');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    headerOrder = Array.isArray(parsed.order) ? parsed.order.slice() : [];
+                    hiddenHeaders = new Set(parsed.hidden || []);
+                    columnWidths = parsed.widths && typeof parsed.widths === 'object' ? parsed.widths : {};
+                }
+            } catch (e) {
+                console.error('Error loading column visibility:', e);
+                // Fallback to localStorage on error
+                try {
+                    const saved = localStorage.getItem('columnVisibility');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        headerOrder = Array.isArray(parsed.order) ? parsed.order.slice() : [];
+                        hiddenHeaders = new Set(parsed.hidden || []);
+                        columnWidths = parsed.widths && typeof parsed.widths === 'object' ? parsed.widths : {};
+                    }
+                } catch (e2) {
+                    console.error('Error loading from localStorage:', e2);
+                }
+            }
+        }
+
+        async function saveColumnVisibility() {
+            const preferences = {
+                order: Array.from(headerOrder),
+                hidden: Array.from(hiddenHeaders),
+                widths: columnWidths
+            };
+            
+            try {
+                // Save to server (user account)
+                const res = await fetch('/api/user/preferences', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ preferences: { columnVisibility: preferences } })
+                });
+                
+                if (!res.ok) {
+                    throw new Error('Server save failed');
+                }
+            } catch (e) {
+                console.error('Error saving to server, using localStorage:', e);
+                // Fallback to localStorage if server fails
+                try {
+                    localStorage.setItem('columnVisibility', JSON.stringify(preferences));
+                } catch (e2) {
+                    console.error('Error saving to localStorage:', e2);
+                }
+            }
+        }
+
+        function getHeadersToShow(headers) {
+            // Determine effective order: use saved headerOrder if present, else current headers
+            const orderBase = headerOrder.length ? headerOrder.filter(h => headers.includes(h)) : headers.slice();
+            // Append any new headers not yet in order (backfill)
+            headers.forEach(h => { if (!orderBase.includes(h)) orderBase.push(h); });
+            // Store back (in memory) so future saves include new headers
+            headerOrder = orderBase.slice();
+            // Filter out hidden
+            return orderBase.filter(h => !hiddenHeaders.has(h));
+        }
+
+        function showToast(message) {
+            const t = document.getElementById('toast');
+            t.textContent = message;
+            t.classList.add('show');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove('show'), 1600);
+        }
+
+        function updateHeaderShadow() {
+            const table = document.querySelector('table');
+            const thead = document.querySelector('thead');
+            if (!table || !thead) return;
+            const top = thead.getBoundingClientRect().top;
+            if (top <= 0) {
+                table.classList.add('header-shadow');
+            } else {
+                table.classList.remove('header-shadow');
+            }
+        }
+
+        async function loadHeaders() {
+            const tableHeadRow = document.getElementById('head-row');
+            try {
+                const res = await fetch('/api/zamowienia/headers');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                allHeaders = Array.isArray(data.headers) ? data.headers : [];
+                
+                // Ensure plan production columns are always available
+                const planColumns = ['Wytłaczarka', 'Drukarnia', 'Automaty'];
+                planColumns.forEach(col => {
+                    if (!allHeaders.includes(col)) {
+                        allHeaders.push(col);
+                    }
+                });
+                
+                // Compute ordered + filtered headers
+                const headersToShow = getHeadersToShow(allHeaders);
+                
+                tableHeadRow.innerHTML = '';
+                headersToShow.forEach(h => {
+                    const th = document.createElement('th');
+                    th.textContent = h;
+                    th.dataset.header = h;
+                    
+                    // Apply saved width if available
+                    const savedWidth = columnWidths[h];
+                    if (savedWidth) {
+                        th.style.width = savedWidth + 'px';
+                        th.style.minWidth = savedWidth + 'px';
+                        th.style.maxWidth = savedWidth + 'px';
+                    }
+                    
+                    // Add resize handle
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.className = 'resize-handle';
+                    th.appendChild(resizeHandle);
+                    
+                    // Setup resize functionality
+                    setupColumnResize(th, h);
+                    
+                    tableHeadRow.appendChild(th);
+                });
+                // Append sticky actions column header
+                const thActions = document.createElement('th');
+                thActions.className = 'sticky-right';
+                
+                // Create container for "Akcje" text and settings button
+                const actionsHeaderContent = document.createElement('div');
+                actionsHeaderContent.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px;';
+                
+                const actionsText = document.createElement('span');
+                actionsText.textContent = 'Akcje';
+                actionsHeaderContent.appendChild(actionsText);
+                
+                // Settings button (gear icon)
+                const settingsBtn = document.createElement('button');
+                settingsBtn.type = 'button';
+                settingsBtn.className = 'btn-icon';
+                settingsBtn.id = 'settings-btn';
+                settingsBtn.title = 'Ustawienia kolumn';
+                settingsBtn.style.cssText = 'flex-shrink: 0; padding: 4px;';
+                settingsBtn.innerHTML = '<svg class="icon icon-settings" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width: 16px; height: 16px;"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.4-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z"/></svg>';
+                settingsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openSettingsModal();
+                });
+                actionsHeaderContent.appendChild(settingsBtn);
+                
+                thActions.appendChild(actionsHeaderContent);
+                tableHeadRow.appendChild(thActions);
+                return headersToShow;
+            } catch (e) {
+                tableHeadRow.innerHTML = '';
+                const th = document.createElement('th');
+                th.textContent = 'Nie udało się wczytać nagłówków';
+                tableHeadRow.appendChild(th);
+                return [];
+            }
+        }
+
+        function setupColumnResize(th, headerName) {
+            const resizeHandle = th.querySelector('.resize-handle');
+            if (!resizeHandle) return;
+
+            let startX, startWidth, isResizing = false;
+
+            resizeHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isResizing = true;
+                startX = e.pageX;
+                startWidth = th.offsetWidth;
+                resizeHandle.classList.add('resizing');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                const diff = e.pageX - startX;
+                const newWidth = Math.max(30, startWidth + diff); // Minimum width 30px (allows hiding text completely)
+                th.style.width = newWidth + 'px';
+                th.style.minWidth = newWidth + 'px';
+                th.style.maxWidth = newWidth + 'px'; // Lock width to prevent auto-expansion
+                
+                // Update all cells in this column
+                const columnIndex = Array.from(th.parentElement.children).indexOf(th);
+                const allRows = document.querySelectorAll('tbody tr');
+                allRows.forEach(row => {
+                    const cell = row.children[columnIndex];
+                    if (cell) {
+                        cell.style.width = newWidth + 'px';
+                        cell.style.minWidth = newWidth + 'px';
+                        cell.style.maxWidth = newWidth + 'px'; // Lock width to prevent auto-expansion
+                    }
+                });
+            });
+
+            document.addEventListener('mouseup', async () => {
+                if (isResizing) {
+                    isResizing = false;
+                    resizeHandle.classList.remove('resizing');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    
+                    // Save width
+                    columnWidths[headerName] = th.offsetWidth;
+                    await saveColumnVisibility();
+                }
+            });
+        }
+
+        async function loadRows(headers) {
+            const tbody = document.getElementById('body-rows');
+            tbody.innerHTML = '';
+            
+            try {
+                const res = await fetch('/api/zamowienia?page=1&pageSize=50');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                const items = Array.isArray(data.items) ? data.items : [];
+                if (items.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = Math.max(1, headers.length + 1); // +1 for actions
+                    td.textContent = 'Brak danych w kolekcji.';
+                    tr.appendChild(td);
+                    tbody.appendChild(tr);
+                    // Don't return - continue to add the "New Order" button
+                } else {
+                    items.forEach(doc => {
+                    const tr = document.createElement('tr');
+                    const rowId = (doc._id && String(doc._id)) || '';
+                    tr.dataset.id = rowId;
+                    headers.forEach((h, index) => {
+                        const td = document.createElement('td');
+                        const v = doc[h];
+                        const valueStr = v === undefined || v === null ? '' : String(v);
+                        
+                        // Apply saved width if available
+                        const savedWidth = columnWidths[h];
+                        if (savedWidth) {
+                            td.style.width = savedWidth + 'px';
+                            td.style.minWidth = savedWidth + 'px';
+                            td.style.maxWidth = savedWidth + 'px';
+                        }
+                        if (h === 'Numer zlecenia' && rowId) {
+                            const a = document.createElement('a');
+                            a.href = `/karta-wyrobu?id=${encodeURIComponent(rowId)}`;
+                            a.textContent = valueStr || '(brak)';
+                            a.title = 'Otwórz kartę wyrobu';
+                            td.appendChild(a);
+                        } else if (h === 'Wytłaczarka' || h === 'Drukarnia' || h === 'Automaty') {
+                            const select = document.createElement('select');
+                            select.dataset.field = h;
+                            const options = ['Wytlaczarka 1','Wytlaczarka 2','Automaty Maly','Automaty Sredni','Arvor','Vicket/Mamata','Carraro','Manzoni','BOBINIARKI','Finish','Empty'];
+                            options.forEach(opt => {
+                                const o = document.createElement('option');
+                                o.value = opt === 'Empty' ? '' : opt;
+                                o.textContent = opt;
+                                if (o.value === valueStr) o.selected = true;
+                                select.appendChild(o);
+                            });
+                            // Add green styling if value is "Finish"
+                            if (valueStr === 'Finish') {
+                                select.classList.add('finish-cell');
+                                td.classList.add('finish-cell');
+                            }
+                            select.addEventListener('change', onCellEdit);
+                            select.addEventListener('blur', onCellEdit);
+                            select.addEventListener('change', () => {
+                                // Update styling based on value
+                                if (select.value === 'Finish') {
+                                    select.classList.add('finish-cell');
+                                    td.classList.add('finish-cell');
+                                } else {
+                                    select.classList.remove('finish-cell');
+                                    td.classList.remove('finish-cell');
+                                }
+                                try {
+                                    sendPlanAssignment(rowId, (doc['Numer zlecenia'] || ''), select.value, h);
+                                } catch {}
+                            });
+                            td.appendChild(select);
+                        } else {
+                            const input = document.createElement('input');
+                            input.type = 'text';
+                            input.value = valueStr;
+                            input.dataset.field = h;
+                            input.addEventListener('change', onCellEdit);
+                            input.addEventListener('blur', onCellEdit);
+                            td.appendChild(input);
+                        }
+                        tr.appendChild(td);
+                    });
+                    // Actions sticky cell
+                    const tdActions = document.createElement('td');
+                    tdActions.className = 'sticky-right';
+                    const wrap = document.createElement('span');
+                    wrap.className = 'actions';
+                    // Archive button (box) -> move to archive
+                    const btnArchive = document.createElement('button');
+                    btnArchive.type = 'button';
+                    btnArchive.className = 'btn-icon';
+                    btnArchive.title = 'Archiwizuj';
+                    btnArchive.innerHTML = '<svg class="icon icon-archive" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3H3V4Zm0 5h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Zm6 4v2h6v-2H9Z"/></svg>';
+                    btnArchive.addEventListener('click', async () => {
+                        if (!rowId) return;
+                        try {
+                            showToast('Archiwizowanie...');
+                            const res = await fetch(`/api/zamowienia/${encodeURIComponent(rowId)}/archive`, { method: 'POST' });
+                            if (!res.ok) throw new Error('HTTP ' + res.status);
+                            const data = await res.json();
+                            if (data && data.ok) {
+                                showToast('Zarchiwizowano.');
+                                tr.remove();
+                            } else {
+                                showToast('Błąd archiwizacji.');
+                            }
+                        } catch (e) {
+                            showToast('Błąd archiwizacji.');
+                        }
+                    });
+                    // Print button (orange)
+                    const btnPrint = document.createElement('button');
+                    btnPrint.type = 'button';
+                    btnPrint.className = 'btn-icon';
+                    btnPrint.title = 'Drukuj kartę';
+                    btnPrint.innerHTML = '<svg class="icon icon-print" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 7V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3h-2V4H8v3H6Zm-2 2h16a2 2 0 0 1 2 2v5h-4v4H8v-4H4v-5a2 2 0 0 1 2-2Zm4 11h8v-4H8v4Zm10-9h2v2h-2v-2Z"/></svg>';
+                    btnPrint.addEventListener('click', () => {
+                        if (rowId) {
+                            window.open(`/karta-wyrobu?id=${encodeURIComponent(rowId)}&print=1`, '_blank');
+                        }
+                    });
+                    wrap.appendChild(btnArchive);
+                    wrap.appendChild(btnPrint);
+                    tdActions.appendChild(wrap);
+                    tr.appendChild(tdActions);
+                    tbody.appendChild(tr);
+                    });
+                }
+            } catch (e) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = Math.max(1, headers.length + 1); // +1 for actions
+                td.textContent = 'Nie udało się wczytać danych.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            }
+            
+            // Add "New Order" button row at the bottom
+            const newOrderRow = document.createElement('tr');
+            newOrderRow.className = 'new-order-row';
+            const newOrderCell = document.createElement('td');
+            newOrderCell.colSpan = headers.length + 1; // +1 for actions column
+            newOrderCell.style.cssText = 'text-align: center; padding: 16px; background: color-mix(in oklab, Canvas 98%, transparent); border-top: 2px solid rgba(127,127,127,.3);';
+            const newOrderBtn = document.createElement('a');
+            newOrderBtn.href = '/nowe-zamowienie';
+            newOrderBtn.className = 'btn';
+            newOrderBtn.style.cssText = 'text-decoration: none; padding: 10px 20px; font-size: 14px; background: #60a5fa; color: white; border: 1px solid #60a5fa; border-radius: 8px; display: inline-block; width: auto; min-width: auto; max-width: none;';
+            newOrderBtn.textContent = '+ Nowe zamówienie';
+            newOrderCell.appendChild(newOrderBtn);
+            newOrderRow.appendChild(newOrderCell);
+            tbody.appendChild(newOrderRow);
+        }
+
+        async function sendPlanAssignment(orderId, numerZlecenia, destination, kind) {
+            try {
+                await fetch('/api/plan/assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, numerZlecenia, destination, kind })
+                });
+            } catch {}
+        }
+
+        let pending;
+        async function onCellEdit(e) {
+            const input = e.currentTarget;
+            const tr = input.closest('tr');
+            const id = tr && tr.dataset.id;
+            if (!id) return;
+            const field = input.dataset.field;
+            const value = input.value;
+
+            if (pending) clearTimeout(pending);
+            pending = setTimeout(async () => {
+                showToast('Zapisywanie...');
+                try {
+                    const res = await fetch(`/api/zamowienia/${encodeURIComponent(id)}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ [field]: value })
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    if (data && data.ok) {
+                        showToast('Zapisano.');
+                    } else {
+                        showToast('Błąd zapisu.');
+                    }
+                } catch (err) {
+                    showToast('Błąd zapisu.');
+                }
+            }, 120);
+        }
+
+        // Modal and drag & drop functionality
+        let draggedElement = null;
+        let dragOverColumn = null;
+        function updatePositionBadges() {
+            // Position badges removed - no longer showing numbers
+            // Remove any existing position badges
+            const visibleCols = document.getElementById('visible-columns');
+            if (visibleCols) {
+                visibleCols.querySelectorAll('.pos').forEach(badge => badge.remove());
+            }
+        }
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.header-item:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+        }
+
+        function openSettingsModal() {
+            loadColumnVisibility();
+            
+            const visibleCols = document.getElementById('visible-columns');
+            const hiddenCols = document.getElementById('hidden-columns');
+            visibleCols.innerHTML = '';
+            hiddenCols.innerHTML = '';
+
+            // Initialize order if empty
+            if (!headerOrder.length) {
+                headerOrder = allHeaders.slice();
+            }
+
+            headerOrder.forEach(header => {
+                const item = document.createElement('div');
+                item.className = 'header-item';
+                item.draggable = true;
+                item.innerHTML = '<span class="name"></span>';
+                item.querySelector('.name').textContent = header;
+                item.dataset.header = header;
+
+                item.addEventListener('dragstart', (e) => {
+                    draggedElement = item;
+                    item.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/html', item.innerHTML);
+                });
+
+                item.addEventListener('dragend', () => {
+                    item.classList.remove('dragging');
+                    document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
+                    draggedElement = null;
+                    dragOverColumn = null;
+                });
+
+                if (hiddenHeaders.has(header)) {
+                    hiddenCols.appendChild(item);
+                } else {
+                    visibleCols.appendChild(item);
+                }
+            });
+
+            updatePositionBadges();
+
+            // Setup drop zones - add listeners to both column-content and entire column
+            [visibleCols, hiddenCols].forEach(column => {
+                const columnContainer = column.closest('.column');
+                
+                // Handler for dragover
+                const handleDragOver = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (columnContainer) {
+                        columnContainer.classList.add('drag-over');
+                    }
+                    dragOverColumn = column;
+                    // For visible columns, show live reordering during drag
+                    if (column.id === 'visible-columns' && draggedElement) {
+                        const afterElement = getDragAfterElement(column, e.clientY);
+                        if (afterElement == null) {
+                            if (draggedElement.parentElement !== column) {
+                                column.appendChild(draggedElement);
+                            }
+                        } else {
+                            if (draggedElement !== afterElement && (draggedElement.parentElement !== column || draggedElement.nextSibling !== afterElement)) {
+                                column.insertBefore(draggedElement, afterElement);
+                            }
+                        }
+                        updatePositionBadges();
+                    }
+                };
+                
+                // Handler for dragleave
+                const handleDragLeave = (e) => {
+                    if (columnContainer && !columnContainer.contains(e.relatedTarget)) {
+                        columnContainer.classList.remove('drag-over');
+                    }
+                };
+                
+                // Handler for drop
+                const handleDrop = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (columnContainer) {
+                        columnContainer.classList.remove('drag-over');
+                    }
+                    if (draggedElement) {
+                        // Determine where to insert the element
+                        const afterElement = getDragAfterElement(column, e.clientY);
+                        if (afterElement == null) {
+                            // No element found - append to end
+                            column.appendChild(draggedElement);
+                        } else {
+                            // Insert before the element that would be after
+                            if (draggedElement !== afterElement) {
+                                column.insertBefore(draggedElement, afterElement);
+                            }
+                        }
+                        updatePositionBadges();
+                    }
+                    draggedElement = null;
+                    dragOverColumn = null;
+                };
+                
+                // Add listeners to column-content
+                column.addEventListener('dragover', handleDragOver);
+                column.addEventListener('dragleave', handleDragLeave);
+                column.addEventListener('drop', handleDrop);
+                
+                // Also add listeners to entire column container for larger drop zone
+                if (columnContainer) {
+                    columnContainer.addEventListener('dragover', handleDragOver);
+                    columnContainer.addEventListener('dragleave', handleDragLeave);
+                    columnContainer.addEventListener('drop', handleDrop);
+                }
+            });
+
+            document.getElementById('settings-modal').classList.add('show');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('show');
+        }
+
+        async function saveColumnSettings() {
+            const visibleCols = document.getElementById('visible-columns');
+            const hiddenCols = document.getElementById('hidden-columns');
+
+            // Rebuild hidden set
+            hiddenHeaders.clear();
+            hiddenCols.querySelectorAll('.header-item').forEach(item => {
+                hiddenHeaders.add(item.dataset.header);
+            });
+            // Rebuild order: visible first in current order, then hidden in their current order
+            const newVisible = Array.from(visibleCols.querySelectorAll('.header-item')).map(i => i.dataset.header);
+            const newHidden = Array.from(hiddenCols.querySelectorAll('.header-item')).map(i => i.dataset.header);
+            headerOrder = [...newVisible, ...newHidden, ...allHeaders.filter(h => !newVisible.includes(h) && !newHidden.includes(h))];
+
+            await saveColumnVisibility();
+            closeSettingsModal();
+            showToast('Zapisano ustawienia kolumn');
+            
+            // Reload headers and rows with new order/visibility
+            loadHeaders().then(headers => loadRows(headers));
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadColumnVisibility();
+
+            // Settings modal handlers
+            // Note: settings button is now in the header column, with event listener added during header creation
+            // This check is for cases where button might exist before headers are loaded
+            const settingsBtn = document.getElementById('settings-btn');
+            if (settingsBtn && !settingsBtn.onclick) {
+                settingsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openSettingsModal();
+                });
+            }
+            document.getElementById('modal-close').addEventListener('click', closeSettingsModal);
+            document.getElementById('modal-cancel').addEventListener('click', closeSettingsModal);
+            document.getElementById('modal-save').addEventListener('click', saveColumnSettings);
+            
+            // Close modal on overlay click
+            document.getElementById('settings-modal').addEventListener('click', (e) => {
+                if (e.target.id === 'settings-modal') {
+                    closeSettingsModal();
+                }
+            });
+
+            const headers = await loadHeaders();
+            await loadRows(headers);
+            updateHeaderShadow();
+        });
+        document.addEventListener('scroll', updateHeaderShadow, { passive: true });
+        window.addEventListener('resize', updateHeaderShadow, { passive: true });
+    </script>
+    <script src="/header.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="header-container" 
+             data-title="Zamówienia">
+        </div>
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr id="head-row">
+                            <th><span class="skeleton" style="width:14ch"></span></th>
+                            <th><span class="skeleton" style="width:10ch"></span></th>
+                            <th><span class="skeleton" style="width:8ch"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="body-rows"></tbody>
+                </table>
+            </div>
+            <div class="footer">Źródło: baza danych MongoDB „zamowienia”</div>
+        </div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Ustawienia kolumn</h2>
+                <button type="button" class="modal-close" id="modal-close" aria-label="Zamknij">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="columns-container">
+                    <div class="column column-visible">
+                        <div class="column-title">Widoczne kolumny</div>
+                        <div id="visible-columns" class="column-content"></div>
+                    </div>
+                    <div class="column column-hidden">
+                        <div class="column-title">Ukryte kolumny</div>
+                        <div id="hidden-columns" class="column-content"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" id="modal-cancel">Anuluj</button>
+                <button type="button" class="btn btn-primary" id="modal-save">Zapisz</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+
