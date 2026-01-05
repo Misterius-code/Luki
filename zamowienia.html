@@ -791,8 +791,35 @@
             }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
         }
 
-        function openSettingsModal() {
-            loadColumnVisibility();
+        async function openSettingsModal() {
+            await loadColumnVisibility();
+            
+            // If allHeaders is empty, reload headers from API
+            if (allHeaders.length === 0) {
+                try {
+                    const res = await fetch('/api/zamowienia/headers');
+                    if (res.ok) {
+                        const data = await res.json();
+                        allHeaders = Array.isArray(data.headers) ? data.headers : [];
+                        
+                        // Ensure plan production columns are always available
+                        const planColumns = ['Wytłaczarka', 'Drukarnia', 'Automaty'];
+                        planColumns.forEach(col => {
+                            if (!allHeaders.includes(col)) {
+                                allHeaders.push(col);
+                            }
+                        });
+                        
+                        // Ensure "Barwnik" column is always available
+                        const barwnikColumn = 'Barwnik';
+                        if (!allHeaders.includes(barwnikColumn)) {
+                            allHeaders.push(barwnikColumn);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error loading headers:', e);
+                }
+            }
             
             const visibleCols = document.getElementById('visible-columns');
             const hiddenCols = document.getElementById('hidden-columns');
@@ -805,17 +832,28 @@
                 allHeaders.push(actionsColumn);
             }
 
-            // Initialize order if empty
-            if (!headerOrder.length) {
-                headerOrder = allHeaders.slice();
+            // Build complete list of headers: use headerOrder for order, but include all from allHeaders
+            let headersToDisplay = [];
+            
+            if (headerOrder.length > 0) {
+                // Start with headers from headerOrder that exist in allHeaders
+                headersToDisplay = headerOrder.filter(h => allHeaders.includes(h));
+                // Add any headers from allHeaders that are not in headerOrder
+                allHeaders.forEach(h => {
+                    if (!headersToDisplay.includes(h)) {
+                        headersToDisplay.push(h);
+                    }
+                });
             } else {
-                // Ensure "Akcje" is in headerOrder
-                if (!headerOrder.includes(actionsColumn)) {
-                    headerOrder.push(actionsColumn);
-                }
+                // If no saved order, use allHeaders
+                headersToDisplay = allHeaders.slice();
             }
+            
+            // Ensure "Akcje" is always at the end
+            headersToDisplay = headersToDisplay.filter(h => h !== 'Akcje');
+            headersToDisplay.push('Akcje');
 
-            headerOrder.forEach(header => {
+            headersToDisplay.forEach(header => {
                 const item = document.createElement('div');
                 item.className = 'header-item';
                 item.draggable = true;

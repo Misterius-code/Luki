@@ -8,7 +8,8 @@
     "create-admin": "node create-admin.js",
     "init-db": "node init-mongodb.js",
     "check-db": "node check-db-status.js",
-    "clean-db": "node clean-database.js"
+    "clean-db": "node clean-database.js",
+    "import-csv": "node import-csv.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

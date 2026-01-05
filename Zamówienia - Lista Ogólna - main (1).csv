@@ -1,0 +1,42 @@
+uki.zamow,Zleceniobiorca,Priorytet,Wytłaczarka,,Automaty,Numer zlecenia,Zleceniodawca,Nazwa wyrobu gotowego,Wymiar wyrobu gotowego,Ilość kg/szt/mb,Wytłaczarka NR1,Wytłaczarka NR2,Barwnik,Jonizacja,Tworzywo,Całkowita szerokość rękawa,Zakładka boczna,Grubość,Rodzaj wyrobu,Nawój na wałek (jaki/ile),UWAGI,DRUKARNIA,Szerokość,Wysokość,Zakładka denna,Zrywka/Klapka,Zgrzew,Parametry dodatkowe,Zrywka,Perforacja,Pakowanie (szt.paczek/szt.zbiorowych),Podliczone?,Usun-inator,Akcja 1 copy,Akcja 2 copy,Akcja 3 copy
+2023-02-22 14:53:49,BC,4,Empty,Empty,Empty,Template,,,,,,,,,,,,,,,,,,,,,,,,,,#REF!,FALSE,0,0,0
+2025-11-06 09:48:42,BC,,,,,BC 3/06/11,Ewa Pak,Worek PP,245x370/30+40,30 tyś   145 kg,,,,,PP 840,,,,,,,Żelek Wiejski 500 g,245,370,30,40,Zgrzew boczny,,Druty,,arkusz 1500,,FALSE,9,9,9
+2025-11-12 14:42:58,BC,,,,Empty,BC 5/12/11,Ewa Pak,Worek PP,210x320/30+40,500 tyś  1790 kg,,,,,PP 740,,,,,,,,210,320,30,40,Zgrzew boczny,,Trytytki,,arkusz 1500,,FALSE,9,9,9
+2025-11-25 07:27:14,BC,,,,Automaty Sredni,BC 1/25/11,Kruse,Worek PP,200x250/20,50 tyś   125 kg,,,,,PP 540,,,,,,,,200,250,20,,Zgrzew boczny,,,,Karton,,FALSE,9,9,9
+2025-11-25 13:45:16,BC,,Wytlaczarka 1,Manzoni,,BC 4/25/11,Zubra  na styczeń,Worek PE,300x330/30+40,25 tyś   130 kg,,,,2x,Oryginał,760,,"0,025",Taśma,,,Iwona Żytni-Razowy,300,330,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-11-25 13:47:54,BC,,Wytlaczarka 1,Empty,Empty,BC 5/25/11,Pamar,Worek PE,"720/510x700x0,038",75 tyś      2800 kg,,,niebieski,NIE,Oryginał 30% lux,720,105,"0,04",Rękaw,,,,,700,,,Zgrzew denny,,,,"Worek, paleta po 25 tyś szt",,FALSE,0,9,9
+2025-11-28 08:59:56,BC,,,,Automaty Sredni,BC 1/28/11,Pamar,Worek PP,240x450,72 tyś   360 kg,,,,,PP 900,,,,,,,,240,450,,,Zgrzew boczny,,,,Karton,,FALSE,9,9,3
+2025-11-28 12:00:40,BC,,,,,BC 2/28/11,Pamar/Bieżyński,Worek PP,260x400/30+40,360 tyś   1930 kg,,,,,PP 900,,,,,,,Bieżyński 500 g,260,400,30,40,Zgrzew boczny,,Druty,okrągły nóż,Karton,,FALSE,9,9,9
+2025-11-28 12:07:30,BC,,,,,BC 4/28/11,Pamar/Bieżyński,Worek PP,230x360/30+40,120 tyś   520 kg,,,,,PP 820 ,,,,,,,Bieżyński 350 kg,230,360,30,40,Zgrzew boczny,,Druty,okrągły nóż,Karton,,FALSE,9,9,9
+2025-12-01 10:24:02,BC,,,,,BC 1/01/12,Pamar/Nitor na Styczeń,Worek PP,210x360/30+40,30 tyś   120 kg,,,,,PP 820,,,,,,,Nitor Razowy,210,360,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-01 10:25:42,BC,,,,,BC 2/01/12,Pamar/Nitor na Styczeń,Worek PP,230x400/30+40,30 tyś   143 kg,,,,,PP 900,,,,,,,Nitor Wiejski,230,400,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-03 11:45:58,BC,,,,,BC 2/03/12,Ewa Pak na Styczeń,Worek PP,230x360/30+40,30 tyś   130 kg,,,,,PP 820,,,,,,,Żelek Szczeciński 400 g,230,360,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-03 14:14:11,BC,,,,,BC 3/03/12,Pasoń,Worek PP,250x400/30+40,30tyś   260 kg,,,,,PP 900,,,,,,,Pasoń Rodzinny,230,400,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-09 13:20:35,BC,,,Wytlaczarka 1,Carraro,BC 2/09/12,Leroy Merlin,Półrękaw PE,"1/2 600x0,05",150 kg,,,biały,2x,,600,,"0,05",Półrękaw,,,"Leroy Merlin ""trójkąty""  nawój 400 mb",,,,,,,,,,,FALSE,9,9,6
+2025-12-11 08:47:54,BC,,,,,BC 1/11/12,Ewa Pak na styczeń,Worek PP,250x320/30+40,30 tyś  130 kg,,,,,PP 740,,,,,,,Zelek Dyniowy,250,320,30,40,Zgrzew boczny,,Druty,,arkusz 1500 szt,#REF!,FALSE,9,9,9
+2025-12-11 08:51:26,BC,,,,,BC 2/11/12,Ewa Pak  na styczeń,Worek PE,245x370/30+40,30 tyś     142 kg    7400 mb taśmy,,,,2x,Oryginał,840,,"0,025",Taśma,,,Żelek Pszenno- Żytni 400 g,245,370,30,40,Zgrzew boczny,,Druty,,arkusz 1500 szt,,FALSE,9,9,9
+2025-12-11 08:53:29,BC,,,,,BC 3/11/12,Pamar/ Wirgraf  na styczeń,Worek PP,245x430/30+40,30 tyś   160 kg,,,,,PP 940,,,,,,,Wirgraf Helios,245,430,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-11 08:56:34,BC,,,,,BC 4/11/12,Pamar/ Wirgraf  na styczeń,Worek PP,230x380/30+40,30 tyś   140 kg,,,,,PP 860,,,,,,,Wirgraf IG,230,380,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-11 09:07:07,BC,,,,,BC 5/11/12,Zubra  na styczeń,Worek PE,255x470/30+40,30 tyś  185 kg   7700 mb taśmy,,,,2x,Oryginał,1040,,"0,025",Taśma,,,JJ Dąbek Szreniawski  750g,255,470,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-12 08:15:33,BC,,,,,BC 3/12/12,Pamar/Wirgraf,Worek PP,235x350/30+40,30 tyś   130 kg,,,,,PP 800,,,,,,,,235,350,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-30 13:50:56,BC,,,,,BC 1/30/12,Pamar,Worek PE,"200x300x0,025",20 tyś   55kg,,,,NIE,Oryginał,600,,"0,025",Taśma,,,,200,300,,,Zgrzew boczny,,,,Karton,,FALSE,9,9,9
+2025-12-18 12:50:38,BC,,,,,BC 2/30/12,Pamar Niedbalski,Worek PP,270x330/30+40   + ścięte rogi,2 x po 28 tyś,,,,,PP 760    265 kg,,,,,,,Niedbalski Hubertus 28 tyś i Gryczanin 28 tyś,270,330,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-18 13:03:56,BC,,,,,BC 3/30/12,Pamar / Ma Trans,Worek PP,200x400/30+40,60 tyś   250 kg,,,,,PP 900,,,,,,,Ma Trans Kawiorek,200,400,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-18 13:16:21,BC,,,,,BC 4/30/12,Pamar / Ma Trans,Worek PP,160x260/30,60 tyś  133 kg,,,,,PP 600,,,,,,,Ma Trans Bułka Tarta,160,260,30,,Zgrzew boczny,,,,Karton,,FALSE,9,9,9
+2025-12-23 11:17:10,BC,,,,,BC 5/30/12,Pamar,Worek PP,220x380/30+40,6600 szt    29 kg,,,,,PP 860,,,,,,,,220,380,30,40,Zgrzew boczny,,Klipsy,,3300 szt,,FALSE,9,9,9
+2025-12-23 11:20:17,BC,,,,,BC 6/30/12,Ewa Pak,Worek PP,205x330/30+40,30 tyś    110 kg,,,,,PP 760,,,,,,,Żelek Żytni Razowy 400 g,205,330,30,40,Zgrzew boczny,,Druty,,arkusz 1500.,,FALSE,9,9,9
+2025-12-30 10:06:58,BC,,,,,BC 7/30/12,Niedbalski,Worek PP,230x380/30+40 + ścięte rogi,130 tyś  600 kg,,,,,PP 860,,,,,,,Niedbalski Baltonowski 500 g,230 (ścięte rogi),380,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+2025-12-30 10:11:28,BC,,,,,BC 8/30/12,Pasoń,Worek PP,250x360/30+40,50 tyś   250 kg,,,,,PP 900,,,,,,,Pasoń Tygrysi Wieloziarnisty,250,360,30,40,Zgrzew boczny,,Druty,,Karton,,FALSE,9,9,9
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,7
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,, ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,, ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

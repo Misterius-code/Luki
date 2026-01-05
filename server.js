@@ -492,8 +492,22 @@ const server = http.createServer((req, res) => {
 	if (parsed.pathname === '/api/zamowienia/headers') {
 		(async () => {
 			try {
-				const doc = await db.collection('zamowienia').findOne({});
-				let headers = doc && doc.data ? Object.keys(doc.data).filter(k => k !== '_id') : [];
+				// Get all unique headers from all documents
+				const allDocs = await db.collection('zamowienia').find({}).toArray();
+				const headersSet = new Set();
+				
+				// Collect all unique keys from all documents
+				allDocs.forEach(doc => {
+					if (doc.data && typeof doc.data === 'object') {
+						Object.keys(doc.data).forEach(key => {
+							if (key !== '_id') {
+								headersSet.add(key);
+							}
+						});
+					}
+				});
+				
+				let headers = Array.from(headersSet);
 				
 				// Consolidate "Parametry dodatkowe" fields
 				const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
@@ -510,6 +524,52 @@ const server = http.createServer((req, res) => {
 					// Always include it for new forms
 					headers.push('Parametry dodatkowe');
 				}
+				
+				// Add standard columns that should always be available
+				const standardColumns = [
+					'Zleceniobiorca',
+					'Priorytet',
+					'Numer zlecenia',
+					'Zleceniodawca',
+					'Nazwa wyrobu gotowego',
+					'Wymiar wyrobu gotowego',
+					'Ilość kg/szt/mb',
+					'Wytłaczarka NR1',
+					'Wytłaczarka NR2',
+					'Barwnik',
+					'Jonizacja',
+					'Tworzywo',
+					'Całkowita szerokość rękawa',
+					'Zakładka boczna',
+					'Grubość',
+					'Rodzaj wyrobu',
+					'Nawój na wałek (jaki/ile)',
+					'UWAGI',
+					'DRUKARNIA',
+					'Szerokość',
+					'Wysokość',
+					'Zakładka denna',
+					'Zrywka/Klapka',
+					'Zgrzew',
+					'Parametry dodatkowe',
+					'Zrywka',
+					'Perforacja',
+					'Pakowanie (szt.paczek/szt.zbiorowych)',
+					'Podliczone?',
+					'Wytłaczarka',
+					'Drukarnia',
+					'Automaty'
+				];
+				
+				// Add standard columns that are not already in headers
+				standardColumns.forEach(col => {
+					if (!headers.includes(col)) {
+						headers.push(col);
+					}
+				});
+				
+				// Sort headers alphabetically for consistency (optional, but helpful)
+				headers.sort();
 				
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ headers }));
