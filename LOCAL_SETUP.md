@@ -57,6 +57,10 @@ Add this content to `.env`:
 # Server Configuration
 PORT=3000
 
+# Force local database connection (ignores MONGODB_URI if set)
+# Set to True to always use local MongoDB, even if MONGODB_URI is set
+Local=True
+
 # MongoDB Connection String
 # For local MongoDB (default):
 MONGODB_URI=mongodb://localhost:27017
@@ -67,6 +71,8 @@ DB_NAME=syn_prezesa
 # Optional: Default admin password (defaults to 'admin1234')
 DEFAULT_ADMIN_PASSWORD=admin1234
 ```
+
+**Important:** If you set `Local=True`, the application will always use `mongodb://localhost:27017` regardless of what `MONGODB_URI` is set to. This is useful when you have a cloud MongoDB URI configured but want to use local database for development.
 
 **Connection String Options:**
 

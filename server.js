@@ -12,8 +12,19 @@ const { MongoClient, ObjectId } = require('mongodb');
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // MongoDB connection configuration
+// Check if Local mode is enabled (for local development)
+const isLocal = process.env.Local === 'True' || process.env.Local === 'true';
+
 // Support both MONGODB_URI and MONGO_URL (common in different deployment platforms)
-let MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017';
+let MONGODB_URI;
+if (isLocal) {
+	// Force local database when Local=True
+	MONGODB_URI = 'mongodb://localhost:27017';
+	console.log('🔧 Local mode enabled - using local MongoDB');
+} else {
+	MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017';
+}
+
 const DB_NAME = process.env.DB_NAME || 'syn_prezesa';
 
 // Check if connection string contains unresolved template variables
@@ -34,8 +45,152 @@ console.log('   MongoDB URI:', uriForLogging);
 console.log('   Database:', DB_NAME);
 
 // Session management (in-memory for simplicity)
-const sessions = new Map(); // sessionToken -> { username, expires }
+const sessions = new Map(); // sessionToken -> { username, role, expires }
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+// Role definitions and permissions
+const ROLES = {
+	admin: {
+		name: 'Admin',
+		permissions: {
+			viewOrders: true,
+			editOrders: true,
+			createOrders: true,
+			archiveOrders: true,
+			viewPlan: true,
+			editPlan: true,
+			assignToMachines: true,
+			viewArchive: true,
+			manageUsers: true,
+			assignRoles: true,
+			viewAdmin: true
+		}
+	},
+	moderator: {
+		name: 'Moderator',
+		permissions: {
+			viewOrders: true,
+			editOrders: true,
+			createOrders: true,
+			archiveOrders: false,
+			viewPlan: true,
+			editPlan: true,
+			assignToMachines: true,
+			viewArchive: false,
+			manageUsers: false,
+			assignRoles: false,
+			viewAdmin: false
+		}
+	},
+	handlowiec: {
+		name: 'Handlowiec',
+		permissions: {
+			viewOrders: true,
+			editOrders: false,
+			createOrders: true,
+			archiveOrders: false,
+			viewPlan: true,
+			editPlan: false,
+			assignToMachines: false,
+			viewArchive: false,
+			manageUsers: false,
+			assignRoles: false,
+			viewAdmin: false
+		}
+	},
+	produkcja: {
+		name: 'Produkcja',
+		permissions: {
+			viewOrders: false,
+			editOrders: false,
+			createOrders: false,
+			archiveOrders: false,
+			viewPlan: true,
+			editPlan: false,
+			assignToMachines: false,
+			viewArchive: false,
+			manageUsers: false,
+			assignRoles: false,
+			viewAdmin: false,
+			checkPlan: true // Only checkboxes in plan
+		}
+	},
+	przegladajacy: {
+		name: 'Przeglądający',
+		permissions: {
+			viewOrders: true,
+			editOrders: false,
+			createOrders: false,
+			archiveOrders: false,
+			viewPlan: true,
+			editPlan: false,
+			assignToMachines: false,
+			viewArchive: false,
+			manageUsers: false,
+			assignRoles: false,
+			viewAdmin: false
+		}
+	},
+	edytujacy: {
+		name: 'Edytujący',
+		permissions: {
+			viewOrders: true,
+			editOrders: true,
+			createOrders: false,
+			archiveOrders: false,
+			viewPlan: true,
+			editPlan: false,
+			assignToMachines: false,
+			viewArchive: false,
+			manageUsers: false,
+			assignRoles: false,
+			viewAdmin: false
+		}
+	}
+};
+
+// Helper function to get user role from database
+async function getUserRole(username) {
+	try {
+		const user = await db.collection('users').findOne({ username });
+		return user?.role || 'przegladajacy'; // Default role
+	} catch (err) {
+		console.error('Error getting user role:', err);
+		return 'przegladajacy';
+	}
+}
+
+// Helper function to check if user has permission
+function hasPermission(role, permission) {
+	if (!role || !ROLES[role]) {
+		return false;
+	}
+	return ROLES[role].permissions[permission] === true;
+}
+
+// Helper function to require specific permission
+function requirePermission(permission) {
+	return async (req, res, callback) => {
+		const cookies = parseCookies(req.headers.cookie || '');
+		const sessionToken = cookies.sessionToken;
+		const session = getSession(sessionToken);
+		
+		if (!session) {
+			res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+			res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+			return;
+		}
+		
+		const userRole = session.role || await getUserRole(session.username);
+		if (!hasPermission(userRole, permission)) {
+			res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+			res.end(JSON.stringify({ ok: false, error: 'Forbidden - insufficient permissions' }));
+			return;
+		}
+		
+		callback();
+	};
+}
 
 // Initialize MongoDB client
 let client;
@@ -127,10 +282,11 @@ function generateSessionToken() {
 	return crypto.randomBytes(32).toString('hex');
 }
 
-function createSession(username) {
+async function createSession(username) {
 	const token = generateSessionToken();
 	const expires = Date.now() + SESSION_DURATION;
-	sessions.set(token, { username, expires });
+	const role = await getUserRole(username);
+	sessions.set(token, { username, role, expires });
 	// Cleanup expired sessions periodically
 	if (sessions.size > 1000) {
 		cleanupExpiredSessions();
@@ -174,13 +330,21 @@ async function initializeDefaultUser() {
 			await db.collection('users').insertOne({
 				username: 'admin',
 				password: hashedPassword,
+				role: 'admin',
 				createdAt: new Date(),
 				lastActivity: null
 			});
 			console.log('✅ Created default admin user');
 			console.log('   Username: admin');
 			console.log('   Password: ' + defaultPassword);
+			console.log('   Role: admin');
 			console.log('   ⚠️  Please change the default password after first login!');
+		} else {
+			// Update existing users without role to have default role
+			await db.collection('users').updateMany(
+				{ role: { $exists: false } },
+				{ $set: { role: 'przegladajacy' } }
+			);
 		}
 	} catch (err) {
 		console.error('Error initializing default user:', err);
@@ -280,8 +444,11 @@ const server = http.createServer((req, res) => {
 					return;
 				}
 
+				// Get user role
+				const userRole = user.role || 'przegladajacy';
+				
 				// Create session
-				const { token, expires } = createSession(username);
+				const { token, expires } = await createSession(username);
 				const cookieOptions = [
 					`sessionToken=${token}`,
 					`Path=/`,
@@ -294,7 +461,7 @@ const server = http.createServer((req, res) => {
 					'Content-Type': 'application/json; charset=utf-8',
 					'Set-Cookie': cookieOptions.join('; ')
 				});
-				res.end(JSON.stringify({ ok: true, username }));
+				res.end(JSON.stringify({ ok: true, username, role: userRole }));
 			} catch (e) {
 				console.error('login error:', e);
 				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -324,6 +491,10 @@ const server = http.createServer((req, res) => {
 	const session = getSession(sessionToken);
 
 	if (!session) {
+		// Log authentication failure for debugging
+		if (parsed.pathname.startsWith('/api/')) {
+			console.log(`🔒 API ${parsed.pathname}: Unauthorized - no valid session`);
+		}
 		// Redirect to login for HTML pages
 		if (parsed.pathname.endsWith('.html') || parsed.pathname === '/' || parsed.pathname.match(/^\/(plan|karta|archiwum|nowe-zamowienie)/)) {
 			res.writeHead(302, { 'Location': '/login' });
@@ -341,7 +512,17 @@ const server = http.createServer((req, res) => {
 		return serveFile(res, path.join(__dirname, 'zamowienia.html'), 'text/html; charset=utf-8');
 	}
 	if (parsed.pathname === '/admin' || parsed.pathname === '/admin/') {
-		return serveFile(res, path.join(__dirname, 'admin.html'), 'text/html; charset=utf-8');
+		// Check admin permission
+		(async () => {
+			const userRole = session.role || await getUserRole(session.username);
+			if (!hasPermission(userRole, 'viewAdmin')) {
+				res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+				res.end('Brak uprawnień do panelu administracyjnego');
+				return;
+			}
+			return serveFile(res, path.join(__dirname, 'admin.html'), 'text/html; charset=utf-8');
+		})();
+		return;
 	}
 	if (parsed.pathname === '/plan' || parsed.pathname === '/plan/') {
 		return serveFile(res, path.join(__dirname, 'plan_produkcji.htm'), 'text/html; charset=utf-8');
@@ -411,10 +592,17 @@ const server = http.createServer((req, res) => {
 				const payload = body ? JSON.parse(body) : {};
 				const preferences = payload.preferences || {};
 				
+				// Update user preferences (preserve existing preferences, merge new ones)
+				const user = await db.collection('users').findOne({ username: session.username });
+				const existingPreferences = user?.preferences || {};
+				const mergedPreferences = { ...existingPreferences, ...preferences };
+				
 				await db.collection('users').updateOne(
 					{ username: session.username },
-					{ $set: { preferences: preferences } }
+					{ $set: { preferences: mergedPreferences } }
 				);
+				
+				console.log(`✅ Saved preferences for user: ${session.username}`);
 				
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ ok: true }));
@@ -427,6 +615,47 @@ const server = http.createServer((req, res) => {
 		return;
 	}
 
+	// Get current user info
+	if (parsed.pathname === '/api/user/me' && req.method === 'GET') {
+		(async () => {
+			try {
+				const cookies = parseCookies(req.headers.cookie || '');
+				const sessionToken = cookies.sessionToken;
+				const session = getSession(sessionToken);
+				
+				if (!session) {
+					res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+					return;
+				}
+				
+				const user = await db.collection('users').findOne({ username: session.username });
+				if (!user) {
+					res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'User not found' }));
+					return;
+				}
+				
+				const userRole = user.role || 'przegladajacy';
+				const roleInfo = ROLES[userRole] || ROLES.przegladajacy;
+				
+				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ 
+					ok: true, 
+					username: user.username,
+					role: userRole,
+					roleName: roleInfo.name,
+					permissions: roleInfo.permissions
+				}));
+			} catch (e) {
+				console.error('get user info error:', e);
+				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: false, error: 'Błąd pobierania informacji o użytkowniku' }));
+			}
+		})();
+		return;
+	}
+
 	// Get users list (requires authentication)
 	if (parsed.pathname === '/api/users' && req.method === 'GET') {
 		(async () => {
@@ -435,6 +664,8 @@ const server = http.createServer((req, res) => {
 				const formattedUsers = users.map(u => ({
 					id: u._id.toString(),
 					username: u.username,
+					role: u.role || 'przegladajacy',
+					roleName: (ROLES[u.role || 'przegladajacy'] || ROLES.przegladajacy).name,
 					createdAt: u.createdAt ? u.createdAt.toISOString() : null,
 					lastActivity: u.lastActivity ? u.lastActivity.toISOString() : (u.createdAt ? u.createdAt.toISOString() : null)
 				}));
@@ -450,12 +681,161 @@ const server = http.createServer((req, res) => {
 		return;
 	}
 
+	// Create new user (requires admin permission)
+	if (parsed.pathname === '/api/users' && req.method === 'POST') {
+		let body = '';
+		req.on('data', chunk => { body += chunk; });
+		req.on('end', async () => {
+			try {
+				if (!db || !isDbConnected) {
+					res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Baza danych nie jest dostępna' }));
+					return;
+				}
+
+				// Check admin permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'manageUsers')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do tworzenia użytkowników' }));
+					return;
+				}
+
+				const payload = body ? JSON.parse(body) : {};
+				const { username, password, role } = payload;
+
+				if (!username || !password) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nazwa użytkownika i hasło są wymagane' }));
+					return;
+				}
+
+				if (username.trim().length < 3) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nazwa użytkownika musi mieć co najmniej 3 znaki' }));
+					return;
+				}
+
+				if (password.length < 8) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Hasło musi mieć co najmniej 8 znaków' }));
+					return;
+				}
+
+				// Validate role
+				const userRoleToAssign = role && ROLES[role] ? role : 'przegladajacy';
+
+				// Check if user already exists
+				const existing = await db.collection('users').findOne({ username: username.trim() });
+				if (existing) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Użytkownik o tej nazwie już istnieje' }));
+					return;
+				}
+
+				// Hash password and create user
+				const hashedPassword = hashPassword(password);
+				const result = await db.collection('users').insertOne({
+					username: username.trim(),
+					password: hashedPassword,
+					role: userRoleToAssign,
+					createdAt: new Date(),
+					lastActivity: null
+				});
+
+				console.log(`✅ Created new user: ${username.trim()} with role: ${userRoleToAssign}`);
+
+				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ 
+					ok: true, 
+					id: result.insertedId.toString(),
+					username: username.trim(),
+					role: userRoleToAssign
+				}));
+			} catch (e) {
+				console.error('create user error:', e);
+				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: false, error: 'Błąd tworzenia użytkownika: ' + e.message }));
+			}
+		});
+		return;
+	}
+
+	// Update user role (requires admin permission)
+	if (parsed.pathname.startsWith('/api/users/') && parsed.pathname.endsWith('/role') && req.method === 'PATCH') {
+		const userId = parsed.pathname.split('/')[3];
+		let body = '';
+		req.on('data', chunk => { body += chunk; });
+		req.on('end', async () => {
+			try {
+				// Check admin permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'assignRoles')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do zmiany ról' }));
+					return;
+				}
+
+				const payload = body ? JSON.parse(body) : {};
+				const { role } = payload;
+
+				if (!role || !ROLES[role]) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nieprawidłowa rola' }));
+					return;
+				}
+
+				if (!ObjectId.isValid(userId)) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nieprawidłowy identyfikator użytkownika' }));
+					return;
+				}
+
+				const result = await db.collection('users').updateOne(
+					{ _id: new ObjectId(userId) },
+					{ $set: { role: role } }
+				);
+
+				if (result.matchedCount === 0) {
+					res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Użytkownik nie znaleziony' }));
+					return;
+				}
+
+				// Invalidate session if role changed for logged in user
+				const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+				if (user && session.username === user.username) {
+					// Update session role
+					session.role = role;
+				}
+
+				console.log(`✅ Updated user role: ${user.username} -> ${role}`);
+
+				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: true, role: role }));
+			} catch (e) {
+				console.error('update user role error:', e);
+				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: false, error: 'Błąd aktualizacji roli: ' + e.message }));
+			}
+		});
+		return;
+	}
+
 	// Create new order
 	if (parsed.pathname === '/api/zamowienia' && req.method === 'POST') {
 		let body = '';
 		req.on('data', chunk => { body += chunk; });
 		req.on('end', async () => {
 			try {
+				// Check permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'createOrders')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do tworzenia zamówień' }));
+					return;
+				}
+
 				const payload = body ? JSON.parse(body) : {};
 				
 				// Validate required fields
@@ -589,12 +969,21 @@ const server = http.createServer((req, res) => {
 			const pageSize = Math.min(200, Math.max(1, parseInt(parsed.query.pageSize || '100', 10)));
 			const skip = (page - 1) * pageSize;
 			try {
+				if (!db || !isDbConnected) {
+					console.error('❌ API /api/zamowienia: Database not connected');
+					res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ error: 'Database not connected' }));
+					return;
+				}
+				
 				const items = await db.collection('zamowienia')
 					.find({})
 					.sort({ _id: -1 })
 					.skip(skip)
 					.limit(pageSize)
 					.toArray();
+				
+				console.log(`📊 API /api/zamowienia: Found ${items.length} items (page ${page}, pageSize ${pageSize})`);
 				
 				// Helper function to consolidate "Parametry dodatkowe" fields
 				function consolidateParametryDodatkowe(data) {
@@ -631,10 +1020,11 @@ const server = http.createServer((req, res) => {
 					};
 				});
 				
+				console.log(`✅ API /api/zamowienia: Returning ${formattedItems.length} formatted items`);
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ page, pageSize, items: formattedItems }));
 			} catch (e) {
-				console.error('list error:', e);
+				console.error('❌ API /api/zamowienia error:', e);
 				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ error: 'Failed to fetch data' }));
 			}
@@ -793,6 +1183,14 @@ const server = http.createServer((req, res) => {
 		req.on('data', chunk => { body += chunk; });
 		req.on('end', async () => {
 			try {
+				// Check permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'assignToMachines')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do przypisywania do maszyn' }));
+					return;
+				}
+
 				const payload = body ? JSON.parse(body) : {};
 				const orderId = payload.orderId;
 				const numerZlecenia = (payload.numerZlecenia || '').toString();
@@ -916,6 +1314,14 @@ const server = http.createServer((req, res) => {
 		req.on('data', chunk => { body += chunk; });
 		req.on('end', async () => {
 			try {
+				// Check permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'editOrders')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do edycji zamówień' }));
+					return;
+				}
+
 				if (!ObjectId.isValid(id)) {
 					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
 					res.end(JSON.stringify({ ok: false, error: 'Nieprawidłowy identyfikator' }));
@@ -1006,6 +1412,14 @@ const server = http.createServer((req, res) => {
 		(async () => {
 			const id = parsed.pathname.split('/')[3]; // /api/zamowienia/:id/archive
 			try {
+				// Check permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'archiveOrders')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do archiwizacji zamówień' }));
+					return;
+				}
+
 				if (!ObjectId.isValid(id)) {
 					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
 					res.end(JSON.stringify({ ok: false, error: 'Nieprawidłowy identyfikator' }));
@@ -1092,3 +1506,4 @@ server.listen(PORT, '0.0.0.0', async () => {
 		}, 1000);
 	}
 });
+

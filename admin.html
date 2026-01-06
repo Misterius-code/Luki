@@ -124,6 +124,117 @@
             font-size: 13px;
             color: color-mix(in oklab, CanvasText 70%, transparent);
         }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+        .modal {
+            background: Canvas;
+            color: CanvasText;
+            border: 1px solid rgba(127,127,127,.25);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.2);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(127,127,127,.25);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+        .modal-close {
+            appearance: none;
+            border: none;
+            background: transparent;
+            color: CanvasText;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+        .modal-close:hover {
+            background: color-mix(in oklab, CanvasText 8%, Canvas);
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: CanvasText;
+        }
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid rgba(127,127,127,.35);
+            border-radius: 8px;
+            background: Canvas;
+            color: CanvasText;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+        .form-help {
+            font-size: 12px;
+            color: color-mix(in oklab, CanvasText 60%, transparent);
+            margin-top: 4px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+        .btn-secondary {
+            background: color-mix(in oklab, Canvas 96%, transparent);
+            color: CanvasText;
+        }
+        .btn-secondary:hover {
+            background: color-mix(in oklab, Canvas 92%, transparent);
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 13px;
+            margin-top: 8px;
+            display: none;
+        }
+        .error-message.show {
+            display: block;
+        }
         <link rel="stylesheet" href="/header.css">
     </style>
     <script src="/header.js"></script>
@@ -139,6 +250,7 @@
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Użytkownicy</h2>
+                <button id="new-user-btn" class="btn btn-primary">+ Nowy użytkownik</button>
             </div>
             
             <div class="user-count" id="user-count">
@@ -150,8 +262,10 @@
                     <thead>
                         <tr>
                             <th>Nazwa użytkownika</th>
+                            <th>Rola</th>
                             <th>Data utworzenia</th>
                             <th>Ostatnia aktywność</th>
+                            <th>Akcje</th>
                         </tr>
                     </thead>
                     <tbody id="users-table">
@@ -167,6 +281,77 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <!-- Modal for creating new user -->
+    <div id="new-user-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Nowy użytkownik</h3>
+                <button class="modal-close" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="new-user-form">
+                    <div class="form-group">
+                        <label class="form-label" for="username">Nazwa użytkownika</label>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            class="form-input" 
+                            required 
+                            minlength="3"
+                            autocomplete="username"
+                        >
+                        <div class="form-help">Minimum 3 znaki</div>
+                        <div class="error-message" id="username-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="password">Hasło</label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            class="form-input" 
+                            required 
+                            minlength="8"
+                            autocomplete="new-password"
+                        >
+                        <div class="form-help">Minimum 8 znaków</div>
+                        <div class="error-message" id="password-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="password-confirm">Potwierdź hasło</label>
+                        <input 
+                            type="password" 
+                            id="password-confirm" 
+                            name="password-confirm" 
+                            class="form-input" 
+                            required 
+                            minlength="8"
+                            autocomplete="new-password"
+                        >
+                        <div class="error-message" id="password-confirm-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="role">Rola</label>
+                        <select id="role" name="role" class="form-input" required>
+                            <option value="przegladajacy">Przeglądający</option>
+                            <option value="edytujacy">Edytujący</option>
+                            <option value="handlowiec">Handlowiec</option>
+                            <option value="moderator">Moderator</option>
+                            <option value="produkcja">Produkcja</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <div class="form-help">Wybierz rolę dla nowego użytkownika</div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-btn">Anuluj</button>
+                        <button type="submit" class="btn btn-primary">Utwórz użytkownika</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script>
         function showToast(message) {
@@ -221,7 +406,7 @@
                 if (users.length === 0) {
                     const tr = document.createElement('tr');
                     const td = document.createElement('td');
-                    td.colSpan = 3;
+                    td.colSpan = 5;
                     td.className = 'empty-state';
                     td.textContent = 'Brak użytkowników w systemie.';
                     tr.appendChild(td);
@@ -232,11 +417,45 @@
                 // Populate table
                 users.forEach(user => {
                     const tr = document.createElement('tr');
+                    tr.dataset.userId = user.id;
                     
                     // Username
                     const tdUsername = document.createElement('td');
                     tdUsername.textContent = user.username || '-';
                     tr.appendChild(tdUsername);
+                    
+                    // Role
+                    const tdRole = document.createElement('td');
+                    const roleSelect = document.createElement('select');
+                    roleSelect.className = 'form-input';
+                    roleSelect.style.cssText = 'width: 100%; padding: 6px 8px; font-size: 13px;';
+                    roleSelect.dataset.userId = user.id;
+                    
+                    const roles = [
+                        { value: 'admin', label: 'Admin' },
+                        { value: 'moderator', label: 'Moderator' },
+                        { value: 'handlowiec', label: 'Handlowiec' },
+                        { value: 'produkcja', label: 'Produkcja' },
+                        { value: 'przegladajacy', label: 'Przeglądający' },
+                        { value: 'edytujacy', label: 'Edytujący' }
+                    ];
+                    
+                    roles.forEach(r => {
+                        const option = document.createElement('option');
+                        option.value = r.value;
+                        option.textContent = r.label;
+                        if (user.role === r.value) {
+                            option.selected = true;
+                        }
+                        roleSelect.appendChild(option);
+                    });
+                    
+                    roleSelect.addEventListener('change', async () => {
+                        await updateUserRole(user.id, roleSelect.value);
+                    });
+                    
+                    tdRole.appendChild(roleSelect);
+                    tr.appendChild(tdRole);
                     
                     // Created date
                     const tdCreated = document.createElement('td');
@@ -244,11 +463,16 @@
                     tdCreated.textContent = formatDate(user.createdAt);
                     tr.appendChild(tdCreated);
                     
-                    // Last activity (not stored yet, showing created date)
+                    // Last activity
                     const tdActivity = document.createElement('td');
                     tdActivity.className = 'date-cell';
                     tdActivity.textContent = formatDate(user.lastActivity || user.createdAt);
                     tr.appendChild(tdActivity);
+                    
+                    // Actions
+                    const tdActions = document.createElement('td');
+                    tdActions.style.textAlign = 'center';
+                    tr.appendChild(tdActions);
                     
                     tbody.appendChild(tr);
                 });
@@ -257,13 +481,108 @@
                 tbody.innerHTML = '';
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
-                td.colSpan = 3;
+                td.colSpan = 5;
                 td.className = 'empty-state';
                 td.textContent = 'Nie udało się wczytać użytkowników.';
                 tr.appendChild(td);
                 tbody.appendChild(tr);
                 userCountEl.textContent = 'Błąd ładowania danych';
                 showToast('Błąd ładowania użytkowników');
+            }
+        }
+
+        function showModal() {
+            const modal = document.getElementById('new-user-modal');
+            modal.classList.add('show');
+            document.getElementById('username').focus();
+        }
+
+        function hideModal() {
+            const modal = document.getElementById('new-user-modal');
+            modal.classList.remove('show');
+            // Reset form
+            document.getElementById('new-user-form').reset();
+            // Clear errors
+            document.querySelectorAll('.error-message').forEach(el => {
+                el.classList.remove('show');
+                el.textContent = '';
+            });
+        }
+
+        function showError(fieldId, message) {
+            const errorEl = document.getElementById(fieldId + '-error');
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.add('show');
+            }
+        }
+
+        function clearError(fieldId) {
+            const errorEl = document.getElementById(fieldId + '-error');
+            if (errorEl) {
+                errorEl.classList.remove('show');
+                errorEl.textContent = '';
+            }
+        }
+
+        async function updateUserRole(userId, role) {
+            try {
+                const res = await fetch(`/api/users/${userId}/role`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Błąd aktualizacji roli');
+                }
+
+                if (data.ok) {
+                    showToast('Rola została zaktualizowana');
+                    loadUsers(); // Reload users list
+                } else {
+                    throw new Error(data.error || 'Błąd aktualizacji roli');
+                }
+            } catch (e) {
+                console.error('Update role error:', e);
+                showToast('Błąd: ' + e.message);
+                loadUsers(); // Reload to revert changes
+            }
+        }
+
+        async function createUser(username, password, role) {
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Błąd tworzenia użytkownika');
+                }
+
+                if (data.ok) {
+                    showToast('Użytkownik został utworzony pomyślnie');
+                    hideModal();
+                    loadUsers(); // Reload users list
+                } else {
+                    throw new Error(data.error || 'Błąd tworzenia użytkownika');
+                }
+            } catch (e) {
+                console.error('Create user error:', e);
+                showToast('Błąd: ' + e.message);
+                if (e.message.includes('już istnieje')) {
+                    showError('username', e.message);
+                } else if (e.message.includes('Nazwa użytkownika')) {
+                    showError('username', e.message);
+                } else if (e.message.includes('Hasło')) {
+                    showError('password', e.message);
+                }
             }
         }
 
@@ -305,10 +624,92 @@
                 });
             }
 
+            // New user button
+            const newUserBtn = document.getElementById('new-user-btn');
+            if (newUserBtn) {
+                newUserBtn.addEventListener('click', showModal);
+            }
+
+            // Modal close buttons
+            const closeModalBtn = document.getElementById('close-modal');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const modal = document.getElementById('new-user-modal');
+            
+            if (closeModalBtn) {
+                closeModalBtn.addEventListener('click', hideModal);
+            }
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', hideModal);
+            }
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        hideModal();
+                    }
+                });
+            }
+
+            // Form submission
+            const form = document.getElementById('new-user-form');
+            if (form) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    // Clear previous errors
+                    clearError('username');
+                    clearError('password');
+                    clearError('password-confirm');
+
+                    const username = document.getElementById('username').value.trim();
+                    const password = document.getElementById('password').value;
+                    const passwordConfirm = document.getElementById('password-confirm').value;
+                    const role = document.getElementById('role').value;
+
+                    // Validation
+                    if (username.length < 3) {
+                        showError('username', 'Nazwa użytkownika musi mieć co najmniej 3 znaki');
+                        return;
+                    }
+
+                    if (password.length < 8) {
+                        showError('password', 'Hasło musi mieć co najmniej 8 znaków');
+                        return;
+                    }
+
+                    if (password !== passwordConfirm) {
+                        showError('password-confirm', 'Hasła nie są identyczne');
+                        return;
+                    }
+
+                    // Create user
+                    await createUser(username, password, role);
+                });
+            }
+
+            // Clear errors on input
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const passwordConfirmInput = document.getElementById('password-confirm');
+            
+            if (usernameInput) {
+                usernameInput.addEventListener('input', () => clearError('username'));
+            }
+            if (passwordInput) {
+                passwordInput.addEventListener('input', () => {
+                    clearError('password');
+                    clearError('password-confirm');
+                });
+            }
+            if (passwordConfirmInput) {
+                passwordConfirmInput.addEventListener('input', () => clearError('password-confirm'));
+            }
+
             // Load users
             loadUsers();
         });
     </script>
 </body>
 </html>
+
+
 

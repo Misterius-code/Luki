@@ -123,11 +123,87 @@
     }
 
     @media print {
-      body { background: #fff; }
-      .container { margin: 0; padding: 0; max-width: none; }
-      .title { border-bottom-width: 1px; }
-      .section-label { page-break-inside: avoid; }
-      table { page-break-inside: avoid; }
+      /* Force white background and black text for printing */
+      * {
+        color: #000 !important;
+        background: #fff !important;
+      }
+      
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      
+      .container {
+        margin: 0;
+        padding: 0;
+        max-width: none;
+        background: #fff !important;
+      }
+      
+      /* Force black borders for all tables and cells */
+      .data-grid,
+      .data-grid th,
+      .data-grid td,
+      .pair-grid,
+      .pair-grid td {
+        border: 1px solid #000 !important;
+        background: #fff !important;
+        color: #000 !important;
+      }
+      
+      .data-grid th {
+        background: #fff !important;
+        color: #000 !important;
+        font-weight: 700;
+      }
+      
+      .data-grid td {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      
+      .pair-grid td.value {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      
+      /* Title border */
+      .title {
+        border-bottom: 2px solid #000 !important;
+        color: #000 !important;
+      }
+      
+      /* Section label border */
+      .section-label {
+        border: 1px solid #000 !important;
+        color: #000 !important;
+        background: #fff !important;
+        page-break-inside: avoid;
+      }
+      
+      /* Inputs in print mode */
+      .cell-input,
+      .cell-textarea,
+      .cell-select {
+        background: #fff !important;
+        color: #000 !important;
+        border: none !important;
+      }
+      
+      /* Muted text - still black but lighter */
+      .muted {
+        color: #666 !important;
+      }
+      
+      /* Page break controls */
+      table {
+        page-break-inside: avoid;
+      }
+      
+      .section-label {
+        page-break-inside: avoid;
+      }
     }
 
     /* Header container - styles moved to header.css for sticky positioning */

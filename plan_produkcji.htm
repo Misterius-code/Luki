@@ -35,7 +35,36 @@
     <link rel="stylesheet" href="/header.css">
     <script src="/header.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        let userPermissions = null;
+        let userRole = null;
+
+        // Load user permissions
+        async function loadUserPermissions() {
+            try {
+                const res = await fetch('/api/user/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.ok) {
+                        userPermissions = data.permissions || {};
+                        userRole = data.role || 'przegladajacy';
+                        return userPermissions;
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading user permissions:', e);
+            }
+            // Default permissions if failed
+            userPermissions = {
+                viewPlan: true,
+                editPlan: false,
+                checkPlan: false
+            };
+            return userPermissions;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load permissions first
+            await loadUserPermissions();
 
             // Auto-collapse sections that have no info; open when info appears
             function isSectionEmpty(detailsEl) {
@@ -118,56 +147,105 @@
                     a.title = 'Otwórz kartę wyrobu';
                     tdNr.appendChild(a);
                     const tdPri = document.createElement('td');
-                    const inpPri = document.createElement('input');
-                    inpPri.type = 'text';
-                    inpPri.className = 'row-input';
-                    tdPri.appendChild(inpPri);
+                    // For "produkcja" role - checkbox only, for others - text input
+                    if (userRole === 'produkcja') {
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'row-input';
+                        checkbox.dataset.orderId = it.orderId || '';
+                        checkbox.dataset.kind = it.kind || '';
+                        checkbox.dataset.planId = it._id || '';
+                        checkbox.addEventListener('change', async () => {
+                            if (checkbox.checked && userPermissions && userPermissions.checkPlan) {
+                                try {
+                                    const res = await fetch(`/api/zamowienia/${encodeURIComponent(it.orderId)}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ [it.kind]: 'Finish' })
+                                    });
+                                    if (res.ok) {
+                                        const deleteRes = await fetch(`/api/plan/${encodeURIComponent(it._id)}`, {
+                                            method: 'DELETE'
+                                        });
+                                        if (deleteRes.ok) {
+                                            tr.remove();
+                                            evaluateAllSections();
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.error('Error checking:', err);
+                                    checkbox.checked = false;
+                                }
+                            }
+                        });
+                        tdPri.appendChild(checkbox);
+                    } else {
+                        const inpPri = document.createElement('input');
+                        inpPri.type = 'text';
+                        inpPri.className = 'row-input';
+                        if (!userPermissions || !userPermissions.editPlan) {
+                            inpPri.disabled = true;
+                            inpPri.style.opacity = '0.6';
+                        }
+                        tdPri.appendChild(inpPri);
+                    }
+                    
                     const tdUw = document.createElement('td');
                     const inpUw = document.createElement('input');
                     inpUw.type = 'text';
                     inpUw.className = 'row-input';
+                    if (!userPermissions || !userPermissions.editPlan) {
+                        inpUw.disabled = true;
+                        inpUw.style.opacity = '0.6';
+                    }
                     tdUw.appendChild(inpUw);
+                    
                     const tdAct = document.createElement('td');
-                    const btnApprove = document.createElement('button');
-                    btnApprove.type = 'button';
-                    btnApprove.className = 'btn-icon';
-                    btnApprove.title = 'Zatwierdź';
-                    btnApprove.innerHTML = '<svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
-                    btnApprove.addEventListener('click', async () => {
-                        const planId = tr.dataset.planId || it._id;
-                        if (!it.orderId || !it.kind || !planId) return;
-                        try {
-                            // Update zamowienia to set field to "Finish"
-                            const res = await fetch(`/api/zamowienia/${encodeURIComponent(it.orderId)}`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ [it.kind]: 'Finish' })
-                            });
-                            if (!res.ok) throw new Error('Failed to update order');
-                            // Delete assignment from plan_produkcji
-                            const deleteRes = await fetch(`/api/plan/${encodeURIComponent(planId)}`, {
-                                method: 'DELETE'
-                            });
-                            if (!deleteRes.ok) throw new Error('Failed to delete assignment');
-                            // Remove row from UI
-                            tr.remove();
-                            // Re-evaluate sections
-                            evaluateAllSections();
-                        } catch (err) {
-                            console.error('Error approving:', err);
-                            alert('Błąd przy zatwierdzaniu');
-                        }
-                    });
-                    const btnReject = document.createElement('button');
-                    btnReject.type = 'button';
-                    btnReject.className = 'btn-icon';
-                    btnReject.title = 'Odrzuć';
-                    btnReject.innerHTML = '<svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>';
-                    const actionsSpan = document.createElement('span');
-                    actionsSpan.className = 'actions';
-                    actionsSpan.appendChild(btnApprove);
-                    actionsSpan.appendChild(btnReject);
-                    tdAct.appendChild(actionsSpan);
+                    // Only show action buttons if user has editPlan permission
+                    if (userPermissions && userPermissions.editPlan) {
+                        const btnApprove = document.createElement('button');
+                        btnApprove.type = 'button';
+                        btnApprove.className = 'btn-icon';
+                        btnApprove.title = 'Zatwierdź';
+                        btnApprove.innerHTML = '<svg class="icon icon-approve" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+                        btnApprove.addEventListener('click', async () => {
+                            const planId = tr.dataset.planId || it._id;
+                            if (!it.orderId || !it.kind || !planId) return;
+                            try {
+                                // Update zamowienia to set field to "Finish"
+                                const res = await fetch(`/api/zamowienia/${encodeURIComponent(it.orderId)}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ [it.kind]: 'Finish' })
+                                });
+                                if (!res.ok) throw new Error('Failed to update order');
+                                // Delete assignment from plan_produkcji
+                                const deleteRes = await fetch(`/api/plan/${encodeURIComponent(planId)}`, {
+                                    method: 'DELETE'
+                                });
+                                if (!deleteRes.ok) throw new Error('Failed to delete assignment');
+                                // Remove row from UI
+                                tr.remove();
+                                // Re-evaluate sections
+                                evaluateAllSections();
+                            } catch (err) {
+                                console.error('Error approving:', err);
+                                alert('Błąd przy zatwierdzaniu');
+                            }
+                        });
+                        const btnReject = document.createElement('button');
+                        btnReject.type = 'button';
+                        btnReject.className = 'btn-icon';
+                        btnReject.title = 'Odrzuć';
+                        btnReject.innerHTML = '<svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>';
+                        const actionsSpan = document.createElement('span');
+                        actionsSpan.className = 'actions';
+                        actionsSpan.appendChild(btnApprove);
+                        actionsSpan.appendChild(btnReject);
+                        tdAct.appendChild(actionsSpan);
+                    } else {
+                        tdAct.textContent = '-';
+                    }
                     tr.appendChild(tdNr);
                     tr.appendChild(tdPri);
                     tr.appendChild(tdUw);

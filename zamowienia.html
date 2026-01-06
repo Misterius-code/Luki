@@ -13,7 +13,7 @@
         h1 { font-size: 20px; margin: 0; font-weight: 600; }
         /* Header styles moved to header.css */
         .card { background: Canvas; color: CanvasText; border: 1px solid rgba(127,127,127,.25); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 0; overflow: hidden; }
-        .table-wrap { width: 100%; max-height: 80vh; overflow-x: auto; overflow-y: auto; padding: 0; margin: 0; }
+        .table-wrap { width: 100%; overflow-x: auto; overflow-y: visible; padding: 0; margin: 0; }
         .table-wrap::-webkit-scrollbar { width: 17px; height: 17px; }
         .table-wrap::-webkit-scrollbar-track { background: transparent; }
         .table-wrap::-webkit-scrollbar-thumb { background: rgba(127,127,127,.3); border-radius: 8px; }
@@ -63,6 +63,9 @@
         .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: color-mix(in oklab, CanvasText 5%, Canvas); color: CanvasText; border: 1px solid rgba(127,127,127,.3); padding: 10px 14px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .2s ease; font-size: 14px; }
         .toast.show { opacity: 1; }
         .footer { padding: 10px 12px; font-size: 12px; color: color-mix(in oklab, CanvasText 65%, transparent); }
+        .loading-more { text-align: center; padding: 20px; color: color-mix(in oklab, CanvasText 60%, transparent); font-size: 14px; }
+        .loading-more::before { content: '⏳ '; }
+        .no-more-data { text-align: center; padding: 20px; color: color-mix(in oklab, CanvasText 50%, transparent); font-size: 12px; }
         /* Sticky actions column on the right */
         .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); min-width: 100px; max-width: 100px; }
         thead .sticky-right { background: color-mix(in oklab, Canvas 92%, transparent); }
@@ -258,10 +261,43 @@
         let headerOrder = [];
         let hiddenHeaders = new Set();
         let columnWidths = {};
+        
+        // Infinite scroll state
+        let currentPage = 1;
+        let isLoading = false;
+        let hasMore = true;
+        const pageSize = 50;
+        let scrollObserver = null;
+        let userPermissions = null;
+
+        // Load user permissions
+        async function loadUserPermissions() {
+            try {
+                const res = await fetch('/api/user/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.ok) {
+                        userPermissions = data.permissions || {};
+                        return userPermissions;
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading user permissions:', e);
+            }
+            // Default permissions if failed
+            userPermissions = {
+                viewOrders: true,
+                editOrders: false,
+                createOrders: false,
+                archiveOrders: false,
+                assignToMachines: false
+            };
+            return userPermissions;
+        }
 
         async function loadColumnVisibility() {
             try {
-                // Try to load from server (user account)
+                // Load from server (user account) - each user has their own preferences
                 const res = await fetch('/api/user/preferences');
                 if (res.ok) {
                     const data = await res.json();
@@ -271,12 +307,13 @@
                         hiddenHeaders = new Set(parsed.hidden || []);
                         // Always ensure "Akcje" is not hidden
                         hiddenHeaders.delete('Akcje');
-                        columnWidths = parsed.widths && typeof parsed.widths === 'object' ? parsed.widths : {};
+                        columnWidths = parsed.widths && typeof parsed.widths === 'object' ? { ...parsed.widths } : {};
+                        console.log('✅ Loaded column preferences from server for current user');
                         return;
                     }
                 }
                 
-                // Fallback to localStorage if server fails
+                // Fallback to localStorage if server fails (but this is per browser, not per user)
                 const saved = localStorage.getItem('columnVisibility');
                 if (saved) {
                     const parsed = JSON.parse(saved);
@@ -284,7 +321,8 @@
                     hiddenHeaders = new Set(parsed.hidden || []);
                     // Always ensure "Akcje" is not hidden
                     hiddenHeaders.delete('Akcje');
-                    columnWidths = parsed.widths && typeof parsed.widths === 'object' ? parsed.widths : {};
+                    columnWidths = parsed.widths && typeof parsed.widths === 'object' ? { ...parsed.widths } : {};
+                    console.warn('⚠️ Loaded from localStorage (fallback) - server preferences not available');
                 }
             } catch (e) {
                 console.error('Error loading column visibility:', e);
@@ -297,7 +335,7 @@
                         hiddenHeaders = new Set(parsed.hidden || []);
                         // Always ensure "Akcje" is not hidden
                         hiddenHeaders.delete('Akcje');
-                        columnWidths = parsed.widths && typeof parsed.widths === 'object' ? parsed.widths : {};
+                        columnWidths = parsed.widths && typeof parsed.widths === 'object' ? { ...parsed.widths } : {};
                     }
                 } catch (e2) {
                     console.error('Error loading from localStorage:', e2);
@@ -309,11 +347,11 @@
             const preferences = {
                 order: Array.from(headerOrder),
                 hidden: Array.from(hiddenHeaders),
-                widths: columnWidths
+                widths: { ...columnWidths } // Copy object to ensure we save current state
             };
             
             try {
-                // Save to server (user account)
+                // Save to server (user account) - each user has their own preferences
                 const res = await fetch('/api/user/preferences', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -323,11 +361,14 @@
                 if (!res.ok) {
                     throw new Error('Server save failed');
                 }
+                
+                console.log('✅ Column preferences saved to server for current user');
             } catch (e) {
                 console.error('Error saving to server, using localStorage:', e);
-                // Fallback to localStorage if server fails
+                // Fallback to localStorage if server fails (but this is per browser, not per user)
                 try {
                     localStorage.setItem('columnVisibility', JSON.stringify(preferences));
+                    console.warn('⚠️ Saved to localStorage (fallback) - will not sync across devices');
                 } catch (e2) {
                     console.error('Error saving to localStorage:', e2);
                 }
@@ -556,174 +597,322 @@
             });
         }
 
-        async function loadRows(headers) {
+        function createRow(doc, headers, rowId) {
+            const tr = document.createElement('tr');
+            tr.dataset.id = rowId;
+            headers.forEach((h, index) => {
+                const td = document.createElement('td');
+                td.dataset.header = h;
+                const v = doc[h];
+                const valueStr = v === undefined || v === null ? '' : String(v);
+                
+                // Special handling for "Akcje" column - always ensure minimum width
+                if (h === 'Akcje') {
+                    const minWidth = 100;
+                    const savedWidth = columnWidths[h];
+                    const width = savedWidth && savedWidth >= minWidth ? savedWidth : minWidth;
+                    if (!savedWidth || savedWidth < minWidth) {
+                        columnWidths[h] = minWidth;
+                    }
+                    td.className = 'sticky-right';
+                    td.style.width = width + 'px';
+                    td.style.minWidth = width + 'px';
+                    td.style.maxWidth = width + 'px';
+                } else {
+                    const savedWidth = columnWidths[h];
+                    if (savedWidth) {
+                        td.style.width = savedWidth + 'px';
+                        td.style.minWidth = savedWidth + 'px';
+                        td.style.maxWidth = savedWidth + 'px';
+                    }
+                }
+                
+                // Special handling for "Akcje" column content
+                if (h === 'Akcje') {
+                    const wrap = document.createElement('span');
+                    wrap.className = 'actions';
+                    
+                    // Archive button - only if user has permission
+                    if (userPermissions && userPermissions.archiveOrders) {
+                        const btnArchive = document.createElement('button');
+                        btnArchive.type = 'button';
+                        btnArchive.className = 'btn-icon';
+                        btnArchive.title = 'Archiwizuj';
+                        btnArchive.innerHTML = '<svg class="icon icon-archive" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3H3V4Zm0 5h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Zm6 4v2h6v-2H9Z"/></svg>';
+                        btnArchive.addEventListener('click', async () => {
+                            if (!rowId) return;
+                            try {
+                                showToast('Archiwizowanie...');
+                                const res = await fetch(`/api/zamowienia/${encodeURIComponent(rowId)}/archive`, { method: 'POST' });
+                                if (!res.ok) throw new Error('HTTP ' + res.status);
+                                const data = await res.json();
+                                if (data && data.ok) {
+                                    showToast('Zarchiwizowano.');
+                                    tr.remove();
+                                } else {
+                                    showToast('Błąd archiwizacji.');
+                                }
+                            } catch (e) {
+                                showToast('Błąd archiwizacji.');
+                            }
+                        });
+                        wrap.appendChild(btnArchive);
+                    }
+                    
+                    // Print button - always available
+                    const btnPrint = document.createElement('button');
+                    btnPrint.type = 'button';
+                    btnPrint.className = 'btn-icon';
+                    btnPrint.title = 'Drukuj kartę';
+                    btnPrint.innerHTML = '<svg class="icon icon-print" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 7V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3h-2V4H8v3H6Zm-2 2h16a2 2 0 0 1 2 2v5h-4v4H8v-4H4v-5a2 2 0 0 1 2-2Zm4 11h8v-4H8v4Zm10-9h2v2h-2v-2Z"/></svg>';
+                    btnPrint.addEventListener('click', () => {
+                        if (rowId) {
+                            window.open(`/karta-wyrobu?id=${encodeURIComponent(rowId)}&print=1`, '_blank');
+                        }
+                    });
+                    wrap.appendChild(btnPrint);
+                    td.appendChild(wrap);
+                } else if (h === 'Numer zlecenia' && rowId) {
+                    const a = document.createElement('a');
+                    a.href = `/karta-wyrobu?id=${encodeURIComponent(rowId)}`;
+                    a.textContent = valueStr || '(brak)';
+                    a.title = 'Otwórz kartę wyrobu';
+                    td.appendChild(a);
+                } else if (h === 'Wytłaczarka' || h === 'Drukarnia' || h === 'Automaty') {
+                    // Only show select if user can assign to machines
+                    if (userPermissions && userPermissions.assignToMachines) {
+                        const select = document.createElement('select');
+                        select.dataset.field = h;
+                        const options = ['Wytlaczarka 1','Wytlaczarka 2','Automaty Maly','Automaty Sredni','Arvor','Vicket/Mamata','Carraro','Manzoni','BOBINIARKI','Finish','Empty'];
+                        options.forEach(opt => {
+                            const o = document.createElement('option');
+                            o.value = opt === 'Empty' ? '' : opt;
+                            o.textContent = opt;
+                            if (o.value === valueStr) o.selected = true;
+                            select.appendChild(o);
+                        });
+                        if (valueStr === 'Finish') {
+                            select.classList.add('finish-cell');
+                            td.classList.add('finish-cell');
+                        }
+                        select.addEventListener('change', onCellEdit);
+                        select.addEventListener('blur', onCellEdit);
+                        select.addEventListener('change', () => {
+                            if (select.value === 'Finish') {
+                                select.classList.add('finish-cell');
+                                td.classList.add('finish-cell');
+                            } else {
+                                select.classList.remove('finish-cell');
+                                td.classList.remove('finish-cell');
+                            }
+                            try {
+                                sendPlanAssignment(rowId, (doc['Numer zlecenia'] || ''), select.value, h);
+                            } catch {}
+                        });
+                        td.appendChild(select);
+                    } else {
+                        // Read-only display
+                        td.textContent = valueStr || '-';
+                        td.style.color = 'color-mix(in oklab, CanvasText 70%, transparent)';
+                    }
+                } else {
+                    // Regular input fields - check edit permission
+                    if (userPermissions && userPermissions.editOrders) {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = valueStr;
+                        input.dataset.field = h;
+                        input.addEventListener('change', onCellEdit);
+                        input.addEventListener('blur', onCellEdit);
+                        td.appendChild(input);
+                    } else {
+                        // Read-only display
+                        td.textContent = valueStr || '-';
+                        td.style.color = 'color-mix(in oklab, CanvasText 70%, transparent)';
+                    }
+                }
+                tr.appendChild(td);
+            });
+            return tr;
+        }
+
+        async function loadRows(headers, append = false) {
+            if (isLoading || (!hasMore && append)) return;
+            
             const tbody = document.getElementById('body-rows');
-            tbody.innerHTML = '';
+            if (!append) {
+                tbody.innerHTML = '';
+                currentPage = 1;
+                hasMore = true;
+                // Remove old observer
+                if (scrollObserver) {
+                    scrollObserver.disconnect();
+                    scrollObserver = null;
+                }
+            }
+            
+            isLoading = true;
+            
+            // Show loading indicator
+            if (append) {
+                const loadingRow = document.createElement('tr');
+                loadingRow.id = 'loading-indicator';
+                const loadingCell = document.createElement('td');
+                loadingCell.colSpan = headers.length;
+                loadingCell.className = 'loading-more';
+                loadingCell.textContent = 'Ładowanie...';
+                loadingRow.appendChild(loadingCell);
+                tbody.appendChild(loadingRow);
+            }
             
             try {
-                const res = await fetch('/api/zamowienia?page=1&pageSize=50');
+                const res = await fetch(`/api/zamowienia?page=${currentPage}&pageSize=${pageSize}`);
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 const items = Array.isArray(data.items) ? data.items : [];
-                if (items.length === 0) {
+                
+                // Remove loading indicator
+                const loadingIndicator = document.getElementById('loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.remove();
+                }
+                
+                if (items.length === 0 && !append) {
                     const tr = document.createElement('tr');
                     const td = document.createElement('td');
                     td.colSpan = Math.max(1, headers.length);
                     td.textContent = 'Brak danych w kolekcji.';
                     tr.appendChild(td);
                     tbody.appendChild(tr);
-                    // Don't return - continue to add the "New Order" button
-                } else {
+                    hasMore = false;
+                } else if (items.length > 0) {
                     items.forEach(doc => {
-                    const tr = document.createElement('tr');
-                    const rowId = (doc._id && String(doc._id)) || '';
-                    tr.dataset.id = rowId;
-                    headers.forEach((h, index) => {
-                        const td = document.createElement('td');
-                        td.dataset.header = h; // Add data-header attribute for CSS targeting
-                        const v = doc[h];
-                        const valueStr = v === undefined || v === null ? '' : String(v);
-                        
-                        // Special handling for "Akcje" column - always ensure minimum width
-                        if (h === 'Akcje') {
-                            const minWidth = 100; // Minimum width for actions column
-                            const savedWidth = columnWidths[h];
-                            const width = savedWidth && savedWidth >= minWidth ? savedWidth : minWidth;
-                            // Update saved width if it was too small
-                            if (!savedWidth || savedWidth < minWidth) {
-                                columnWidths[h] = minWidth;
-                            }
-                            td.className = 'sticky-right';
-                            td.style.width = width + 'px';
-                            td.style.minWidth = width + 'px';
-                            td.style.maxWidth = width + 'px'; // Lock width to prevent expansion
-                        } else {
-                            // Apply saved width if available for other columns
-                            const savedWidth = columnWidths[h];
-                            if (savedWidth) {
-                                td.style.width = savedWidth + 'px';
-                                td.style.minWidth = savedWidth + 'px';
-                                td.style.maxWidth = savedWidth + 'px';
-                            }
-                        }
-                        
-                        // Special handling for "Akcje" column content
-                        if (h === 'Akcje') {
-                            const wrap = document.createElement('span');
-                            wrap.className = 'actions';
-                            // Archive button (box) -> move to archive
-                            const btnArchive = document.createElement('button');
-                            btnArchive.type = 'button';
-                            btnArchive.className = 'btn-icon';
-                            btnArchive.title = 'Archiwizuj';
-                            btnArchive.innerHTML = '<svg class="icon icon-archive" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3H3V4Zm0 5h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Zm6 4v2h6v-2H9Z"/></svg>';
-                            btnArchive.addEventListener('click', async () => {
-                                if (!rowId) return;
-                                try {
-                                    showToast('Archiwizowanie...');
-                                    const res = await fetch(`/api/zamowienia/${encodeURIComponent(rowId)}/archive`, { method: 'POST' });
-                                    if (!res.ok) throw new Error('HTTP ' + res.status);
-                                    const data = await res.json();
-                                    if (data && data.ok) {
-                                        showToast('Zarchiwizowano.');
-                                        tr.remove();
-                                    } else {
-                                        showToast('Błąd archiwizacji.');
-                                    }
-                                } catch (e) {
-                                    showToast('Błąd archiwizacji.');
-                                }
-                            });
-                            // Print button (orange)
-                            const btnPrint = document.createElement('button');
-                            btnPrint.type = 'button';
-                            btnPrint.className = 'btn-icon';
-                            btnPrint.title = 'Drukuj kartę';
-                            btnPrint.innerHTML = '<svg class="icon icon-print" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 7V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3h-2V4H8v3H6Zm-2 2h16a2 2 0 0 1 2 2v5h-4v4H8v-4H4v-5a2 2 0 0 1 2-2Zm4 11h8v-4H8v4Zm10-9h2v2h-2v-2Z"/></svg>';
-                            btnPrint.addEventListener('click', () => {
-                                if (rowId) {
-                                    window.open(`/karta-wyrobu?id=${encodeURIComponent(rowId)}&print=1`, '_blank');
-                                }
-                            });
-                            wrap.appendChild(btnArchive);
-                            wrap.appendChild(btnPrint);
-                            td.appendChild(wrap);
-                        } else if (h === 'Numer zlecenia' && rowId) {
-                            const a = document.createElement('a');
-                            a.href = `/karta-wyrobu?id=${encodeURIComponent(rowId)}`;
-                            a.textContent = valueStr || '(brak)';
-                            a.title = 'Otwórz kartę wyrobu';
-                            td.appendChild(a);
-                        } else if (h === 'Wytłaczarka' || h === 'Drukarnia' || h === 'Automaty') {
-                            const select = document.createElement('select');
-                            select.dataset.field = h;
-                            const options = ['Wytlaczarka 1','Wytlaczarka 2','Automaty Maly','Automaty Sredni','Arvor','Vicket/Mamata','Carraro','Manzoni','BOBINIARKI','Finish','Empty'];
-                            options.forEach(opt => {
-                                const o = document.createElement('option');
-                                o.value = opt === 'Empty' ? '' : opt;
-                                o.textContent = opt;
-                                if (o.value === valueStr) o.selected = true;
-                                select.appendChild(o);
-                            });
-                            // Add green styling if value is "Finish"
-                            if (valueStr === 'Finish') {
-                                select.classList.add('finish-cell');
-                                td.classList.add('finish-cell');
-                            }
-                            select.addEventListener('change', onCellEdit);
-                            select.addEventListener('blur', onCellEdit);
-                            select.addEventListener('change', () => {
-                                // Update styling based on value
-                                if (select.value === 'Finish') {
-                                    select.classList.add('finish-cell');
-                                    td.classList.add('finish-cell');
-                                } else {
-                                    select.classList.remove('finish-cell');
-                                    td.classList.remove('finish-cell');
-                                }
-                                try {
-                                    sendPlanAssignment(rowId, (doc['Numer zlecenia'] || ''), select.value, h);
-                                } catch {}
-                            });
-                            td.appendChild(select);
-                        } else {
-                            const input = document.createElement('input');
-                            input.type = 'text';
-                            input.value = valueStr;
-                            input.dataset.field = h;
-                            input.addEventListener('change', onCellEdit);
-                            input.addEventListener('blur', onCellEdit);
-                            td.appendChild(input);
-                        }
-                        tr.appendChild(td);
+                        const rowId = (doc._id && String(doc._id)) || '';
+                        const tr = createRow(doc, headers, rowId);
+                        tbody.appendChild(tr);
                     });
                     
-                    tbody.appendChild(tr);
-                    });
+                    // Check if there are more pages
+                    hasMore = items.length === pageSize;
+                    currentPage++;
+                    
+                    // Remove old sentinel and "no more data" message
+                    const oldSentinel = document.getElementById('scroll-sentinel');
+                    if (oldSentinel) oldSentinel.remove();
+                    const oldNoMore = tbody.querySelector('.no-more-data');
+                    if (oldNoMore && oldNoMore.parentElement) {
+                        oldNoMore.parentElement.remove();
+                    }
+                    
+                    // Setup infinite scroll observer if there's more data
+                    if (hasMore) {
+                        setupInfiniteScroll(headers);
+                    } else {
+                        // Show "no more data" message
+                        const noMoreRow = document.createElement('tr');
+                        const noMoreCell = document.createElement('td');
+                        noMoreCell.colSpan = headers.length;
+                        noMoreCell.className = 'no-more-data';
+                        noMoreCell.textContent = 'Wszystkie dane zostały załadowane';
+                        noMoreRow.appendChild(noMoreCell);
+                        // Insert before "New Order" row if it exists
+                        const newOrderRow = tbody.querySelector('.new-order-row');
+                        if (newOrderRow) {
+                            tbody.insertBefore(noMoreRow, newOrderRow);
+                        } else {
+                            tbody.appendChild(noMoreRow);
+                        }
+                        // Disconnect observer
+                        if (scrollObserver) {
+                            scrollObserver.disconnect();
+                            scrollObserver = null;
+                        }
+                    }
+                } else {
+                    hasMore = false;
                 }
             } catch (e) {
-                const tr = document.createElement('tr');
-                const td = document.createElement('td');
-                td.colSpan = Math.max(1, headers.length);
-                td.textContent = 'Nie udało się wczytać danych.';
-                tr.appendChild(td);
-                tbody.appendChild(tr);
+                const loadingIndicator = document.getElementById('loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.remove();
+                }
+                if (!append) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = Math.max(1, headers.length);
+                    td.textContent = 'Nie udało się wczytać danych.';
+                    tr.appendChild(td);
+                    tbody.appendChild(tr);
+                }
+                hasMore = false;
+            } finally {
+                isLoading = false;
             }
             
-            // Add "New Order" button row at the bottom
-            const newOrderRow = document.createElement('tr');
-            newOrderRow.className = 'new-order-row';
-            const newOrderCell = document.createElement('td');
-            newOrderCell.colSpan = headers.length;
-            newOrderCell.style.cssText = 'text-align: center; padding: 16px; background: color-mix(in oklab, Canvas 98%, transparent); border-top: 2px solid rgba(127,127,127,.3);';
-            const newOrderBtn = document.createElement('a');
-            newOrderBtn.href = '/nowe-zamowienie';
-            newOrderBtn.className = 'btn';
-            newOrderBtn.style.cssText = 'text-decoration: none; padding: 10px 20px; font-size: 14px; background: #60a5fa; color: white; border: 1px solid #60a5fa; border-radius: 8px; display: inline-block; width: auto; min-width: auto; max-width: none;';
-            newOrderBtn.textContent = '+ Nowe zamówienie';
-            newOrderCell.appendChild(newOrderBtn);
-            newOrderRow.appendChild(newOrderCell);
-            tbody.appendChild(newOrderRow);
+            // Add "New Order" button row at the bottom (only if not appending and user has permission)
+            if (!append && userPermissions && userPermissions.createOrders) {
+                const existingNewOrderRow = tbody.querySelector('.new-order-row');
+                if (!existingNewOrderRow) {
+                    const newOrderRow = document.createElement('tr');
+                    newOrderRow.className = 'new-order-row';
+                    const newOrderCell = document.createElement('td');
+                    newOrderCell.colSpan = headers.length;
+                    newOrderCell.style.cssText = 'text-align: center; padding: 16px; background: color-mix(in oklab, Canvas 98%, transparent); border-top: 2px solid rgba(127,127,127,.3);';
+                    const newOrderBtn = document.createElement('a');
+                    newOrderBtn.href = '/nowe-zamowienie';
+                    newOrderBtn.className = 'btn';
+                    newOrderBtn.style.cssText = 'text-decoration: none; padding: 10px 20px; font-size: 14px; background: #60a5fa; color: white; border: 1px solid #60a5fa; border-radius: 8px; display: inline-block; width: auto; min-width: auto; max-width: none;';
+                    newOrderBtn.textContent = '+ Nowe zamówienie';
+                    newOrderCell.appendChild(newOrderBtn);
+                    newOrderRow.appendChild(newOrderCell);
+                    tbody.appendChild(newOrderRow);
+                }
+            }
+        }
+        
+        function setupInfiniteScroll(headers) {
+            // Check if sentinel already exists
+            let sentinel = document.getElementById('scroll-sentinel');
+            
+            if (!sentinel) {
+                // Create a sentinel element at the bottom
+                const tbody = document.getElementById('body-rows');
+                sentinel = document.createElement('tr');
+                sentinel.id = 'scroll-sentinel';
+                sentinel.style.height = '1px';
+                const sentinelCell = document.createElement('td');
+                sentinelCell.colSpan = headers.length;
+                sentinelCell.style.padding = '0';
+                sentinelCell.style.height = '1px';
+                sentinel.appendChild(sentinelCell);
+                
+                // Insert before "New Order" row if it exists
+                const newOrderRow = tbody.querySelector('.new-order-row');
+                if (newOrderRow) {
+                    tbody.insertBefore(sentinel, newOrderRow);
+                } else {
+                    tbody.appendChild(sentinel);
+                }
+            }
+            
+            // Setup Intersection Observer
+            if (scrollObserver) {
+                scrollObserver.disconnect();
+            }
+            
+            scrollObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && hasMore && !isLoading) {
+                        loadRows(headers, true);
+                    }
+                });
+            }, {
+                root: null,
+                rootMargin: '200px',
+                threshold: 0.1
+            });
+            
+            scrollObserver.observe(sentinel);
         }
 
         async function sendPlanAssignment(orderId, numerZlecenia, destination, kind) {
@@ -738,6 +927,12 @@
 
         let pending;
         async function onCellEdit(e) {
+            // Check edit permission
+            if (!userPermissions || !userPermissions.editOrders) {
+                showToast('Brak uprawnień do edycji');
+                return;
+            }
+            
             const input = e.currentTarget;
             const tr = input.closest('tr');
             const id = tr && tr.dataset.id;
@@ -754,7 +949,13 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ [field]: value })
                     });
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    if (!res.ok) {
+                        if (res.status === 403) {
+                            showToast('Brak uprawnień do edycji');
+                            return;
+                        }
+                        throw new Error('HTTP ' + res.status);
+                    }
                     const data = await res.json();
                     if (data && data.ok) {
                         showToast('Zapisano.');
@@ -1007,6 +1208,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            // Load user permissions first
+            await loadUserPermissions();
             await loadColumnVisibility();
 
             // Settings modal handlers

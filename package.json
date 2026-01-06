@@ -9,7 +9,8 @@
     "init-db": "node init-mongodb.js",
     "check-db": "node check-db-status.js",
     "clean-db": "node clean-database.js",
-    "import-csv": "node import-csv.js"
+    "import-csv": "node import-csv.js",
+    "migrate-railway": "node migrate-to-railway.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

@@ -4,7 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
 
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017';
+// MongoDB connection configuration
+// Check if Local mode is enabled (for local development)
+const isLocal = process.env.Local === 'True' || process.env.Local === 'true';
+const MONGODB_URI = isLocal ? 'mongodb://localhost:27017' : (process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017');
 const DB_NAME = process.env.DB_NAME || 'syn_prezesa';
 
 // CSV file path (can be passed as argument or use default)

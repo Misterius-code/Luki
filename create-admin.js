@@ -4,7 +4,9 @@ const { MongoClient } = require('mongodb');
 const crypto = require('crypto');
 
 // MongoDB connection configuration
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+// Check if Local mode is enabled (for local development)
+const isLocal = process.env.Local === 'True' || process.env.Local === 'true';
+const MONGODB_URI = isLocal ? 'mongodb://localhost:27017' : (process.env.MONGODB_URI || 'mongodb://localhost:27017');
 const DB_NAME = process.env.DB_NAME || 'syn_prezesa';
 
 // Password hashing utilities (same as server.js)
@@ -31,19 +33,31 @@ async function createAdminUser() {
 		const existing = await db.collection('users').findOne({ username: username });
 
 		if (existing) {
-			console.log(`⚠️  User "${username}" already exists!`);
-			console.log('   To update the password, delete the user first or use a different username.');
-			process.exit(1);
+			// Update existing user to admin role if not already admin
+			if (existing.role !== 'admin') {
+				await db.collection('users').updateOne(
+					{ username: username },
+					{ $set: { role: 'admin' } }
+				);
+				console.log(`✅ Updated user "${username}" to admin role!`);
+				console.log('   Username:', username);
+				console.log('   Role: admin (updated)');
+			} else {
+				console.log(`⚠️  User "${username}" already exists with admin role!`);
+				console.log('   No changes needed.');
+			}
+			process.exit(0);
 		}
 
 		// Hash password
 		const hashedPassword = hashPassword(password);
 		const createdAt = new Date();
 
-		// Insert admin user
+		// Insert admin user with admin role
 		await db.collection('users').insertOne({
 			username: username,
 			password: hashedPassword,
+			role: 'admin',
 			createdAt: createdAt,
 			lastActivity: null
 		});
@@ -51,6 +65,7 @@ async function createAdminUser() {
 		console.log('✅ Admin user created successfully!');
 		console.log('   Username:', username);
 		console.log('   Password:', password);
+		console.log('   Role: admin');
 		console.log('   ⚠️  Please change the password after first login!');
 
 	} catch (err) {
