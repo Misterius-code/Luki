@@ -656,6 +656,23 @@ const server = http.createServer((req, res) => {
 		return;
 	}
 
+	// Helper function to safely convert date to ISO string
+	function toISOString(date) {
+		if (!date) return null;
+		if (date instanceof Date) {
+			return date.toISOString();
+		}
+		if (typeof date === 'string') {
+			// Try to parse string date
+			const parsed = new Date(date);
+			if (!isNaN(parsed.getTime())) {
+				return parsed.toISOString();
+			}
+			return date; // Return as-is if can't parse
+		}
+		return null;
+	}
+
 	// Get users list (requires authentication)
 	if (parsed.pathname === '/api/users' && req.method === 'GET') {
 		(async () => {
@@ -666,8 +683,8 @@ const server = http.createServer((req, res) => {
 					username: u.username,
 					role: u.role || 'przegladajacy',
 					roleName: (ROLES[u.role || 'przegladajacy'] || ROLES.przegladajacy).name,
-					createdAt: u.createdAt ? u.createdAt.toISOString() : null,
-					lastActivity: u.lastActivity ? u.lastActivity.toISOString() : (u.createdAt ? u.createdAt.toISOString() : null)
+					createdAt: toISOString(u.createdAt),
+					lastActivity: toISOString(u.lastActivity) || toISOString(u.createdAt)
 				}));
 				
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
