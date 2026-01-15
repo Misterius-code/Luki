@@ -839,6 +839,150 @@ const server = http.createServer((req, res) => {
 		return;
 	}
 
+	// Reset user password (requires admin permission)
+	if (parsed.pathname.startsWith('/api/users/') && parsed.pathname.endsWith('/reset-password') && req.method === 'POST') {
+		const userId = parsed.pathname.split('/')[3];
+		let body = '';
+		req.on('data', chunk => { body += chunk; });
+		req.on('end', async () => {
+			try {
+				// Check admin permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'manageUsers')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do resetowania haseł' }));
+					return;
+				}
+
+				if (!ObjectId.isValid(userId)) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nieprawidłowy identyfikator użytkownika' }));
+					return;
+				}
+
+				const payload = body ? JSON.parse(body) : {};
+				const newPassword = payload.password;
+
+				if (!newPassword) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Hasło jest wymagane' }));
+					return;
+				}
+
+				if (newPassword.length < 8) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Hasło musi mieć co najmniej 8 znaków' }));
+					return;
+				}
+
+				const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+				if (!user) {
+					res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Użytkownik nie znaleziony' }));
+					return;
+				}
+
+				// Hash new password
+				const hashedPassword = hashPassword(newPassword);
+				await db.collection('users').updateOne(
+					{ _id: new ObjectId(userId) },
+					{ $set: { password: hashedPassword } }
+				);
+
+				// Invalidate all sessions for this user (force re-login)
+				for (const [token, sess] of sessions.entries()) {
+					if (sess.username === user.username) {
+						sessions.delete(token);
+					}
+				}
+
+				console.log(`✅ Reset password for user: ${user.username}`);
+
+				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: true, message: 'Hasło zostało zresetowane' }));
+			} catch (e) {
+				console.error('reset password error:', e);
+				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: false, error: 'Błąd resetowania hasła: ' + e.message }));
+			}
+		});
+		return;
+	}
+
+	// Delete user (requires admin permission)
+	// Match /api/users/:id but not /api/users/:id/role or /api/users/:id/reset-password
+	if (parsed.pathname.startsWith('/api/users/') && req.method === 'DELETE' && 
+	    !parsed.pathname.endsWith('/role') && !parsed.pathname.endsWith('/reset-password')) {
+		const userId = parsed.pathname.split('/')[3];
+		(async () => {
+			try {
+				// Check admin permission
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'manageUsers')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do usuwania użytkowników' }));
+					return;
+				}
+
+				if (!ObjectId.isValid(userId)) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nieprawidłowy identyfikator użytkownika' }));
+					return;
+				}
+
+				const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+				if (!user) {
+					res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Użytkownik nie znaleziony' }));
+					return;
+				}
+
+				// Prevent deleting yourself
+				if (user.username === session.username) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nie możesz usunąć własnego konta' }));
+					return;
+				}
+
+				// Prevent deleting the last admin
+				if (user.role === 'admin') {
+					const adminCount = await db.collection('users').countDocuments({ role: 'admin' });
+					if (adminCount <= 1) {
+						res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+						res.end(JSON.stringify({ ok: false, error: 'Nie można usunąć ostatniego administratora' }));
+						return;
+					}
+				}
+
+				// Delete user
+				const result = await db.collection('users').deleteOne({ _id: new ObjectId(userId) });
+
+				// Invalidate all sessions for this user
+				for (const [token, sess] of sessions.entries()) {
+					if (sess.username === user.username) {
+						sessions.delete(token);
+					}
+				}
+
+				if (result.deletedCount === 0) {
+					res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Użytkownik nie znaleziony' }));
+					return;
+				}
+
+				console.log(`✅ Deleted user: ${user.username}`);
+
+				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: true, message: 'Użytkownik został usunięty' }));
+			} catch (e) {
+				console.error('delete user error:', e);
+				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: false, error: 'Błąd usuwania użytkownika: ' + e.message }));
+			}
+		})();
+		return;
+	}
+
 	// Create new order
 	if (parsed.pathname === '/api/zamowienia' && req.method === 'POST') {
 		let body = '';

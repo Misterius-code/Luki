@@ -282,6 +282,75 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+    <!-- Modal for resetting password -->
+    <div id="reset-password-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Resetuj hasło</h3>
+                <button class="modal-close" id="close-reset-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px;">Resetuj hasło dla użytkownika <strong id="reset-username-display"></strong></p>
+                <form id="reset-password-form">
+                    <div class="form-group">
+                        <label class="form-label" for="reset-password">Nowe hasło</label>
+                        <input 
+                            type="password" 
+                            id="reset-password" 
+                            name="reset-password" 
+                            class="form-input" 
+                            required 
+                            minlength="8"
+                            autocomplete="new-password"
+                        >
+                        <div class="form-help">Minimum 8 znaków</div>
+                        <div class="error-message" id="reset-password-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="reset-password-confirm">Potwierdź hasło</label>
+                        <input 
+                            type="password" 
+                            id="reset-password-confirm" 
+                            name="reset-password-confirm" 
+                            class="form-input" 
+                            required 
+                            minlength="8"
+                            autocomplete="new-password"
+                        >
+                        <div class="error-message" id="reset-password-confirm-error"></div>
+                    </div>
+                    <p style="margin-top: 20px; margin-bottom: 0; color: #f59e0b; font-size: 13px;">
+                        ⚠️ Użytkownik będzie musiał się wylogować i zalogować ponownie z nowym hasłem.
+                    </p>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-reset-btn">Anuluj</button>
+                        <button type="submit" class="btn btn-primary" id="confirm-reset-btn">Resetuj hasło</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for deleting user -->
+    <div id="delete-user-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Usuń użytkownika</h3>
+                <button class="modal-close" id="close-delete-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px;">Czy na pewno chcesz usunąć użytkownika <strong id="delete-username-display"></strong>?</p>
+                <p style="margin-bottom: 20px; color: #ef4444; font-size: 13px;">
+                    ⚠️ Ta operacja jest nieodwracalna. Wszystkie sesje użytkownika zostaną wylogowane.
+                </p>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-delete-btn">Anuluj</button>
+                    <button type="button" class="btn" id="confirm-delete-btn" style="background: #ef4444; color: white; border-color: #ef4444;">Usuń użytkownika</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal for creating new user -->
     <div id="new-user-modal" class="modal-overlay">
         <div class="modal">
@@ -385,6 +454,20 @@
             const userCountEl = document.getElementById('user-count');
             
             try {
+                // Get current user info
+                let currentUsername = null;
+                try {
+                    const meRes = await fetch('/api/user/me');
+                    if (meRes.ok) {
+                        const meData = await meRes.json();
+                        if (meData.ok) {
+                            currentUsername = meData.username;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error fetching current user:', e);
+                }
+
                 const res = await fetch('/api/users');
                 if (!res.ok) {
                     if (res.status === 401) {
@@ -472,6 +555,40 @@
                     // Actions
                     const tdActions = document.createElement('td');
                     tdActions.style.textAlign = 'center';
+                    
+                    const actionsContainer = document.createElement('div');
+                    actionsContainer.style.display = 'flex';
+                    actionsContainer.style.gap = '8px';
+                    actionsContainer.style.justifyContent = 'center';
+                    
+                    // Reset password button
+                    const btnReset = document.createElement('button');
+                    btnReset.type = 'button';
+                    btnReset.className = 'btn btn-secondary';
+                    btnReset.style.cssText = 'padding: 6px 12px; font-size: 12px;';
+                    btnReset.textContent = 'Resetuj hasło';
+                    btnReset.title = 'Resetuj hasło użytkownika';
+                    btnReset.addEventListener('click', () => showResetPasswordModal(user.id, user.username));
+                    actionsContainer.appendChild(btnReset);
+                    
+                    // Delete button
+                    const btnDelete = document.createElement('button');
+                    btnDelete.type = 'button';
+                    btnDelete.className = 'btn';
+                    const isCurrentUser = currentUsername && user.username === currentUsername;
+                    btnDelete.style.cssText = 'padding: 6px 12px; font-size: 12px; background: #ef4444; color: white; border-color: #ef4444;';
+                    btnDelete.textContent = 'Usuń';
+                    btnDelete.title = isCurrentUser ? 'Nie możesz usunąć własnego konta' : 'Usuń użytkownika';
+                    if (isCurrentUser) {
+                        btnDelete.disabled = true;
+                        btnDelete.style.opacity = '0.5';
+                        btnDelete.style.cursor = 'not-allowed';
+                    } else {
+                        btnDelete.addEventListener('click', () => showDeleteUserModal(user.id, user.username));
+                    }
+                    actionsContainer.appendChild(btnDelete);
+                    
+                    tdActions.appendChild(actionsContainer);
                     tr.appendChild(tdActions);
                     
                     tbody.appendChild(tr);
@@ -586,6 +703,102 @@
             }
         }
 
+        let currentResetUserId = null;
+        let currentDeleteUserId = null;
+
+        function showResetPasswordModal(userId, username) {
+            currentResetUserId = userId;
+            const modal = document.getElementById('reset-password-modal');
+            document.getElementById('reset-username-display').textContent = username;
+            modal.classList.add('show');
+            // Focus on password field
+            setTimeout(() => {
+                document.getElementById('reset-password').focus();
+            }, 100);
+        }
+
+        function hideResetPasswordModal() {
+            const modal = document.getElementById('reset-password-modal');
+            modal.classList.remove('show');
+            currentResetUserId = null;
+            // Reset form
+            const form = document.getElementById('reset-password-form');
+            if (form) {
+                form.reset();
+            }
+            // Clear errors
+            clearError('reset-password');
+            clearError('reset-password-confirm');
+        }
+
+        function showDeleteUserModal(userId, username) {
+            currentDeleteUserId = userId;
+            const modal = document.getElementById('delete-user-modal');
+            document.getElementById('delete-username-display').textContent = username;
+            modal.classList.add('show');
+        }
+
+        function hideDeleteUserModal() {
+            const modal = document.getElementById('delete-user-modal');
+            modal.classList.remove('show');
+            currentDeleteUserId = null;
+        }
+
+        async function resetUserPassword(userId, password) {
+            try {
+                const res = await fetch(`/api/users/${userId}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Błąd resetowania hasła');
+                }
+
+                if (data.ok) {
+                    showToast('Hasło zostało zresetowane pomyślnie');
+                    hideResetPasswordModal();
+                    loadUsers(); // Reload users list
+                } else {
+                    throw new Error(data.error || 'Błąd resetowania hasła');
+                }
+            } catch (e) {
+                console.error('Reset password error:', e);
+                showToast('Błąd: ' + e.message);
+                if (e.message.includes('Hasło')) {
+                    showError('reset-password', e.message);
+                }
+            }
+        }
+
+        async function deleteUser(userId) {
+            try {
+                const res = await fetch(`/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Błąd usuwania użytkownika');
+                }
+
+                if (data.ok) {
+                    showToast('Użytkownik został usunięty');
+                    hideDeleteUserModal();
+                    loadUsers(); // Reload users list
+                } else {
+                    throw new Error(data.error || 'Błąd usuwania użytkownika');
+                }
+            } catch (e) {
+                console.error('Delete user error:', e);
+                showToast('Błąd: ' + e.message);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             // Theme toggle
             const toggle = document.getElementById('light-toggle');
@@ -645,6 +858,97 @@
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
                         hideModal();
+                    }
+                });
+            }
+
+            // Reset password modal handlers
+            const resetModal = document.getElementById('reset-password-modal');
+            const closeResetModalBtn = document.getElementById('close-reset-modal');
+            const cancelResetBtn = document.getElementById('cancel-reset-btn');
+            const confirmResetBtn = document.getElementById('confirm-reset-btn');
+            
+            if (closeResetModalBtn) {
+                closeResetModalBtn.addEventListener('click', hideResetPasswordModal);
+            }
+            if (cancelResetBtn) {
+                cancelResetBtn.addEventListener('click', hideResetPasswordModal);
+            }
+            // Reset password form submission
+            const resetPasswordForm = document.getElementById('reset-password-form');
+            if (resetPasswordForm) {
+                resetPasswordForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    // Clear previous errors
+                    clearError('reset-password');
+                    clearError('reset-password-confirm');
+
+                    const password = document.getElementById('reset-password').value;
+                    const passwordConfirm = document.getElementById('reset-password-confirm').value;
+
+                    // Validation
+                    if (password.length < 8) {
+                        showError('reset-password', 'Hasło musi mieć co najmniej 8 znaków');
+                        return;
+                    }
+
+                    if (password !== passwordConfirm) {
+                        showError('reset-password-confirm', 'Hasła nie są identyczne');
+                        return;
+                    }
+
+                    // Reset password
+                    if (currentResetUserId) {
+                        await resetUserPassword(currentResetUserId, password);
+                    }
+                });
+            }
+
+            // Clear errors on input
+            const resetPasswordInput = document.getElementById('reset-password');
+            const resetPasswordConfirmInput = document.getElementById('reset-password-confirm');
+            
+            if (resetPasswordInput) {
+                resetPasswordInput.addEventListener('input', () => {
+                    clearError('reset-password');
+                    clearError('reset-password-confirm');
+                });
+            }
+            if (resetPasswordConfirmInput) {
+                resetPasswordConfirmInput.addEventListener('input', () => clearError('reset-password-confirm'));
+            }
+            if (resetModal) {
+                resetModal.addEventListener('click', (e) => {
+                    if (e.target === resetModal) {
+                        hideResetPasswordModal();
+                    }
+                });
+            }
+
+            // Delete user modal handlers
+            const deleteModal = document.getElementById('delete-user-modal');
+            const closeDeleteModalBtn = document.getElementById('close-delete-modal');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            
+            if (closeDeleteModalBtn) {
+                closeDeleteModalBtn.addEventListener('click', hideDeleteUserModal);
+            }
+            if (cancelDeleteBtn) {
+                cancelDeleteBtn.addEventListener('click', hideDeleteUserModal);
+            }
+            if (confirmDeleteBtn) {
+                confirmDeleteBtn.addEventListener('click', () => {
+                    if (currentDeleteUserId) {
+                        deleteUser(currentDeleteUserId);
+                    }
+                });
+            }
+            if (deleteModal) {
+                deleteModal.addEventListener('click', (e) => {
+                    if (e.target === deleteModal) {
+                        hideDeleteUserModal();
                     }
                 });
             }
