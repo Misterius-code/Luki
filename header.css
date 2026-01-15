@@ -70,6 +70,11 @@ h1 {
     font-weight: bold;
 }
 
+/* Light theme: use black text */
+html[data-theme="light"] .crumb-active {
+    color: black;
+}
+
 .tools {
     display: flex;
     align-items: center;

@@ -926,12 +926,29 @@
         }
       });
 
-      // Print button handler
+      // Print button handler - hide for produkcja role
       const printBtn = document.getElementById('btn-print');
       if (printBtn) {
-        printBtn.addEventListener('click', () => {
-          window.print();
-        });
+        // Check user role and hide print button for produkcja
+        (async () => {
+          try {
+            const res = await fetch('/api/user/me');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.ok && data.role === 'produkcja') {
+                printBtn.style.display = 'none';
+                return;
+              }
+            }
+          } catch (e) {
+            console.error('Error loading user info:', e);
+          }
+          
+          // Show print button and add handler for other roles
+          printBtn.addEventListener('click', () => {
+            window.print();
+          });
+        })();
       }
 
       // Save button handler

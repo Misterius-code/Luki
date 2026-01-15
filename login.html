@@ -257,8 +257,16 @@
                     }
 
                     if (result.ok) {
-                        // Redirect to home page
-                        window.location.href = '/';
+                        // Redirect based on user role
+                        const userRole = result.role || 'przegladajacy';
+                        let redirectUrl = '/';
+                        
+                        // For "produkcja" role, redirect to plan production page
+                        if (userRole === 'produkcja') {
+                            redirectUrl = '/plan';
+                        }
+                        
+                        window.location.href = redirectUrl;
                     } else {
                         throw new Error(result.error || 'Błąd logowania');
                     }

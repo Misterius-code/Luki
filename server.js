@@ -76,7 +76,7 @@ const ROLES = {
 			viewPlan: true,
 			editPlan: true,
 			assignToMachines: true,
-			viewArchive: false,
+			viewArchive: true,
 			manageUsers: false,
 			assignRoles: false,
 			viewAdmin: false
@@ -327,12 +327,42 @@ async function initializeDefaultUser() {
 		if (usersCount === 0) {
 			const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin1234';
 			const hashedPassword = hashPassword(defaultPassword);
+			
+			// Default column order for new users (readable, logical order)
+			const defaultColumnOrder = [
+				'Wytłaczarka',
+				'Drukarnia',
+				'Automaty',
+				'Numer zlecenia',
+				'Zleceniodawca',
+				'Wymiar wyrobu gotowego',
+				'Nazwa wyrobu gotowego',
+				'Ilość kg/szt/mb',
+				'Barwnik',
+				'Jonizacja',
+				'Tworzywo',
+				'Całkowita szerokość rękawa',
+				'Zakładka boczna',
+				'Grubość',
+				'Rodzaj wyrobu'
+			];
+			
+			// Set default preferences for new user
+			const defaultPreferences = {
+				columnVisibility: {
+					order: defaultColumnOrder,
+					hidden: [],
+					widths: {}
+				}
+			};
+			
 			await db.collection('users').insertOne({
 				username: 'admin',
 				password: hashedPassword,
 				role: 'admin',
 				createdAt: new Date(),
-				lastActivity: null
+				lastActivity: null,
+				preferences: defaultPreferences
 			});
 			console.log('✅ Created default admin user');
 			console.log('   Username: admin');
@@ -509,7 +539,18 @@ const server = http.createServer((req, res) => {
 
 	// Protected routes below
 	if (parsed.pathname === '/') {
-		return serveFile(res, path.join(__dirname, 'zamowienia.html'), 'text/html; charset=utf-8');
+		// Check if user has permission to view orders
+		(async () => {
+			const userRole = session.role || await getUserRole(session.username);
+			if (!hasPermission(userRole, 'viewOrders')) {
+				// Redirect to plan if user doesn't have viewOrders permission (e.g., produkcja role)
+				res.writeHead(302, { 'Location': '/plan' });
+				res.end();
+				return;
+			}
+			serveFile(res, path.join(__dirname, 'zamowienia.html'), 'text/html; charset=utf-8');
+		})();
+		return;
 	}
 	if (parsed.pathname === '/admin' || parsed.pathname === '/admin/') {
 		// Check admin permission
@@ -534,7 +575,18 @@ const server = http.createServer((req, res) => {
 		return serveFile(res, path.join(__dirname, 'karta-wyrobu.html'), 'text/html; charset=utf-8');
 	}
 	if (parsed.pathname === '/archiwum' || parsed.pathname === '/archiwum/') {
-		return serveFile(res, path.join(__dirname, 'archiwum.html'), 'text/html; charset=utf-8');
+		// Check if user has permission to view archive
+		(async () => {
+			const userRole = session.role || await getUserRole(session.username);
+			if (!hasPermission(userRole, 'viewArchive')) {
+				// Redirect to plan if user doesn't have viewArchive permission (e.g., produkcja role)
+				res.writeHead(302, { 'Location': '/plan' });
+				res.end();
+				return;
+			}
+			serveFile(res, path.join(__dirname, 'archiwum.html'), 'text/html; charset=utf-8');
+		})();
+		return;
 	}
 	if (parsed.pathname === '/nowe-zamowienie' || parsed.pathname === '/nowe-zamowienie/') {
 		return serveFile(res, path.join(__dirname, 'nowe-zamowienie.html'), 'text/html; charset=utf-8');
@@ -752,12 +804,42 @@ const server = http.createServer((req, res) => {
 
 				// Hash password and create user
 				const hashedPassword = hashPassword(password);
+				
+				// Default column order for new users (readable, logical order)
+				const defaultColumnOrder = [
+					'Wytłaczarka',
+					'Drukarnia',
+					'Automaty',
+					'Numer zlecenia',
+					'Zleceniodawca',
+					'Wymiar wyrobu gotowego',
+					'Nazwa wyrobu gotowego',
+					'Ilość kg/szt/mb',
+					'Barwnik',
+					'Jonizacja',
+					'Tworzywo',
+					'Całkowita szerokość rękawa',
+					'Zakładka boczna',
+					'Grubość',
+					'Rodzaj wyrobu'
+				];
+				
+				// Set default preferences for new user
+				const defaultPreferences = {
+					columnVisibility: {
+						order: defaultColumnOrder,
+						hidden: [],
+						widths: {}
+					}
+				};
+				
 				const result = await db.collection('users').insertOne({
 					username: username.trim(),
 					password: hashedPassword,
 					role: userRoleToAssign,
 					createdAt: new Date(),
-					lastActivity: null
+					lastActivity: null,
+					preferences: defaultPreferences
 				});
 
 				console.log(`✅ Created new user: ${username.trim()} with role: ${userRoleToAssign}`);
@@ -1344,6 +1426,17 @@ const server = http.createServer((req, res) => {
 		req.on('data', chunk => { body += chunk; });
 		req.on('end', async () => {
 			try {
+				// Get session
+				const cookies = parseCookies(req.headers.cookie || '');
+				const sessionToken = cookies.sessionToken;
+				const session = getSession(sessionToken);
+				
+				if (!session) {
+					res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+					return;
+				}
+				
 				// Check permission
 				const userRole = session.role || await getUserRole(session.username);
 				if (!hasPermission(userRole, 'assignToMachines')) {
@@ -1575,7 +1668,10 @@ const server = http.createServer((req, res) => {
 			try {
 				// Check permission
 				const userRole = session.role || await getUserRole(session.username);
-				if (!hasPermission(userRole, 'archiveOrders')) {
+				// Allow produkcja role to archive from plan production (checkPlan permission)
+				const canArchive = hasPermission(userRole, 'archiveOrders') || 
+				                   (hasPermission(userRole, 'checkPlan') && userRole === 'produkcja');
+				if (!canArchive) {
 					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
 					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do archiwizacji zamówień' }));
 					return;

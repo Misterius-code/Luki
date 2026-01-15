@@ -201,8 +201,8 @@
                     tdUw.appendChild(inpUw);
                     
                     const tdAct = document.createElement('td');
-                    // Only show action buttons if user has editPlan permission
-                    if (userPermissions && userPermissions.editPlan) {
+                    // Show action buttons if user has editPlan permission OR checkPlan permission (produkcja role)
+                    if (userPermissions && (userPermissions.editPlan || userPermissions.checkPlan)) {
                         const btnApprove = document.createElement('button');
                         btnApprove.type = 'button';
                         btnApprove.className = 'btn-icon';
@@ -212,13 +212,28 @@
                             const planId = tr.dataset.planId || it._id;
                             if (!it.orderId || !it.kind || !planId) return;
                             try {
-                                // Update zamowienia to set field to "Finish"
+                                // Update zamowienia to set field to "Archiwum" and archive if user has checkPlan permission
                                 const res = await fetch(`/api/zamowienia/${encodeURIComponent(it.orderId)}`, {
                                     method: 'PATCH',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ [it.kind]: 'Finish' })
+                                    body: JSON.stringify({ [it.kind]: 'Archiwum' })
                                 });
                                 if (!res.ok) throw new Error('Failed to update order');
+                                
+                                // If user has checkPlan permission (produkcja), also archive the order
+                                if (userPermissions && userPermissions.checkPlan) {
+                                    try {
+                                        const archiveRes = await fetch(`/api/zamowienia/${encodeURIComponent(it.orderId)}/archive`, {
+                                            method: 'POST'
+                                        });
+                                        if (!archiveRes.ok) {
+                                            console.warn('Failed to archive order, but continuing...');
+                                        }
+                                    } catch (archiveErr) {
+                                        console.warn('Archive error (non-blocking):', archiveErr);
+                                    }
+                                }
+                                
                                 // Delete assignment from plan_produkcji
                                 const deleteRes = await fetch(`/api/plan/${encodeURIComponent(planId)}`, {
                                     method: 'DELETE'
@@ -238,6 +253,24 @@
                         btnReject.className = 'btn-icon';
                         btnReject.title = 'Odrzuć';
                         btnReject.innerHTML = '<svg class="icon icon-reject" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.3 5.71 12 12.01 5.7 5.7 4.29 7.11l6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.29 6.3 1.42-1.41-6.3-6.3 6.3-6.3z"/></svg>';
+                        btnReject.addEventListener('click', async () => {
+                            const planId = tr.dataset.planId || it._id;
+                            if (!planId) return;
+                            try {
+                                // Delete assignment from plan_produkcji (reject)
+                                const deleteRes = await fetch(`/api/plan/${encodeURIComponent(planId)}`, {
+                                    method: 'DELETE'
+                                });
+                                if (!deleteRes.ok) throw new Error('Failed to delete assignment');
+                                // Remove row from UI
+                                tr.remove();
+                                // Re-evaluate sections
+                                evaluateAllSections();
+                            } catch (err) {
+                                console.error('Error rejecting:', err);
+                                alert('Błąd przy odrzucaniu');
+                            }
+                        });
                         const actionsSpan = document.createElement('span');
                         actionsSpan.className = 'actions';
                         actionsSpan.appendChild(btnApprove);

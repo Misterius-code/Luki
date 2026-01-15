@@ -50,7 +50,6 @@
             if (headerContainer && headerContainer.dataset.crumbs) {
                 pageCrumbs.innerHTML = headerContainer.dataset.crumbs;
             } else {
-                // Always show the same breadcrumbs: Zamówienia / Plan Produkcji / Archiwum
                 // Detect current page from URL
                 const currentPath = window.location.pathname;
                 let activePage = '';
@@ -64,22 +63,78 @@
                     activePage = 'archiwum';
                 }
                 
-                // Build breadcrumbs with active page highlighted
-                const crumbs = [
-                    { text: 'Zamówienia', href: '/', id: 'zamowienia' },
-                    { text: 'Plan Produkcji', href: '/plan', id: 'plan' },
-                    { text: 'Archiwum', href: '/archiwum', id: 'archiwum' }
-                ];
+                // Get user role to determine which breadcrumbs to show
+                let userRole = null;
+                let userPermissions = null;
                 
-                pageCrumbs.innerHTML = crumbs.map((crumb, index) => {
-                    const isActive = crumb.id === activePage;
-                    const separator = index > 0 ? ' / ' : '';
-                    if (isActive) {
-                        return separator + `<span class="crumb-active">${crumb.text}</span>`;
-                    } else {
-                        return separator + `<a href="${crumb.href}" title="${crumb.text}">${crumb.text}</a>`;
+                // Try to get user info from API
+                (async () => {
+                    try {
+                        const res = await fetch('/api/user/me');
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.ok) {
+                                userRole = data.role;
+                                userPermissions = data.permissions;
+                                
+                                // Build breadcrumbs based on user role
+                                let crumbs = [];
+                                
+                                // For "produkcja" role, show only "Plan Produkcji"
+                                if (userRole === 'produkcja') {
+                                    crumbs = [
+                                        { text: 'Plan Produkcji', href: '/plan', id: 'plan' }
+                                    ];
+                                } else {
+                                    // For other roles, show all breadcrumbs
+                                    crumbs = [
+                                        { text: 'Zamówienia', href: '/', id: 'zamowienia' },
+                                        { text: 'Plan Produkcji', href: '/plan', id: 'plan' },
+                                        { text: 'Archiwum', href: '/archiwum', id: 'archiwum' }
+                                    ];
+                                }
+                                
+                                // Filter crumbs based on permissions
+                                if (userPermissions) {
+                                    crumbs = crumbs.filter(crumb => {
+                                        if (crumb.id === 'zamowienia' && !userPermissions.viewOrders) return false;
+                                        if (crumb.id === 'plan' && !userPermissions.viewPlan) return false;
+                                        if (crumb.id === 'archiwum' && !userPermissions.viewArchive) return false;
+                                        return true;
+                                    });
+                                }
+                                
+                                pageCrumbs.innerHTML = crumbs.map((crumb, index) => {
+                                    const isActive = crumb.id === activePage;
+                                    const separator = index > 0 ? ' / ' : '';
+                                    if (isActive) {
+                                        return separator + `<span class="crumb-active">${crumb.text}</span>`;
+                                    } else {
+                                        return separator + `<a href="${crumb.href}" title="${crumb.text}">${crumb.text}</a>`;
+                                    }
+                                }).join('');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error loading user info for breadcrumbs:', e);
+                        // Fallback: show all breadcrumbs if API fails
+                        const crumbs = [
+                            { text: 'Zamówienia', href: '/', id: 'zamowienia' },
+                            { text: 'Plan Produkcji', href: '/plan', id: 'plan' },
+                            { text: 'Archiwum', href: '/archiwum', id: 'archiwum' }
+                        ];
+                        
+                        pageCrumbs.innerHTML = crumbs.map((crumb, index) => {
+                            const isActive = crumb.id === activePage;
+                            const separator = index > 0 ? ' / ' : '';
+                            if (isActive) {
+                                return separator + `<span class="crumb-active">${crumb.text}</span>`;
+                            } else {
+                                return separator + `<a href="${crumb.href}" title="${crumb.text}">${crumb.text}</a>`;
+                            }
+                        }).join('');
                     }
-                }).join('');
+                })();
             }
         }
 
@@ -158,6 +213,26 @@
         const profileDropdown = document.getElementById('profile-dropdown');
         
         if (profileBtn && profileDropdown) {
+            // Check user permissions and hide admin panel link if user doesn't have access
+            (async () => {
+                try {
+                    const res = await fetch('/api/user/me');
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.ok) {
+                            const userPermissions = data.permissions || {};
+                            // Hide admin panel link if user doesn't have viewAdmin permission
+                            const adminLink = profileDropdown.querySelector('a[href="/admin"]');
+                            if (adminLink && !userPermissions.viewAdmin) {
+                                adminLink.style.display = 'none';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error loading user info for admin link:', e);
+                }
+            })();
+            
             profileBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 profileDropdown.classList.toggle('show');

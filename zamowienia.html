@@ -13,12 +13,12 @@
         h1 { font-size: 20px; margin: 0; font-weight: 600; }
         /* Header styles moved to header.css */
         .card { background: Canvas; color: CanvasText; border: 1px solid rgba(127,127,127,.25); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 0; overflow: hidden; }
-        .table-wrap { width: 100%; overflow-x: auto; overflow-y: visible; padding: 0; margin: 0; }
+        .table-wrap { width: 100%; overflow-x: auto; overflow-y: auto; padding: 0; margin: 0; max-height: calc(100vh - 200px); }
         .table-wrap::-webkit-scrollbar { width: 17px; height: 17px; }
         .table-wrap::-webkit-scrollbar-track { background: transparent; }
         .table-wrap::-webkit-scrollbar-thumb { background: rgba(127,127,127,.3); border-radius: 8px; }
         table { width: 100%; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 10px; margin: 0; }
-        thead th { position: sticky; top: 0; z-index: 2; background: color-mix(in oklab, Canvas 92%, transparent); backdrop-filter: blur(6px); text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        thead th { position: sticky; top: 0; z-index: 10; background: color-mix(in oklab, Canvas 92%, transparent); backdrop-filter: blur(6px); text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         th { position: relative; }
         th, td { padding: 10px 12px; border-bottom: 1px solid rgba(127,127,127,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         th { min-width: 30px; } /* Allow very narrow columns */
@@ -49,7 +49,11 @@
         thead th:last-child { border-top-right-radius: 12px; }
         table.header-shadow thead th { box-shadow: 0 2px 0 rgba(127,127,127,.25), 0 6px 12px rgba(0,0,0,.08); }
         tbody tr:nth-child(even) { background: color-mix(in oklab, Canvas 96%, transparent); }
-        tbody tr:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
+        tbody tr:hover { 
+            background: color-mix(in oklab, #60a5fa 15%, Canvas) !important; 
+            outline: 2px solid color-mix(in oklab, #60a5fa 40%, transparent);
+            outline-offset: -2px;
+        }
         .skeleton { display: inline-block; height: 1em; width: 8ch; border-radius: 4px; background: linear-gradient(90deg, rgba(127,127,127,.15), rgba(127,127,127,.25), rgba(127,127,127,.15)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
         @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
         td input { width: 100%; max-width: 360px; border: 0 !important; box-shadow: none !important; background: transparent; color: inherit; padding: 6px 6px; border-radius: 6px; outline: none; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
@@ -69,7 +73,7 @@
         /* Sticky actions column on the right */
         .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); min-width: 100px; max-width: 100px; }
         thead .sticky-right { background: color-mix(in oklab, Canvas 92%, transparent); }
-        thead th.sticky-right { position: sticky; top: 0; right: 0; z-index: 5; min-width: 100px; max-width: 100px; }
+        thead th.sticky-right { position: sticky; top: 0; right: 0; z-index: 11; min-width: 100px; max-width: 100px; }
         .actions { display: inline-flex; gap: 4px; justify-content: center; }
         .btn-icon { appearance: none; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; padding: 6px; border-radius: 8px; cursor: pointer; line-height: 0; }
         .btn-icon:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
@@ -90,15 +94,15 @@
             justify-content: center;
             gap: 4px;
         }
-        /* Finish cell styling */
-        td select.finish-cell,
-        td.finish-cell select {
-            background: #10b981;
+        /* Archive cell styling */
+        td select.archive-cell,
+        td.archive-cell select {
+            background: #ef4444;
             color: white;
             font-weight: 600;
         }
-        td select.finish-cell option,
-        td.finish-cell select option {
+        td select.archive-cell option,
+        td.archive-cell select option {
             background: white;
             color: CanvasText;
         }
@@ -262,6 +266,25 @@
         let hiddenHeaders = new Set();
         let columnWidths = {};
         
+        // Default column order for new users (readable, logical order)
+        const DEFAULT_HEADER_ORDER = [
+            'Wytłaczarka',
+            'Drukarnia',
+            'Automaty',
+            'Numer zlecenia',
+            'Zleceniodawca',
+            'Wymiar wyrobu gotowego',
+            'Nazwa wyrobu gotowego',
+            'Ilość kg/szt/mb',
+            'Barwnik',
+            'Jonizacja',
+            'Tworzywo',
+            'Całkowita szerokość rękawa',
+            'Zakładka boczna',
+            'Grubość',
+            'Rodzaj wyrobu'
+        ];
+        
         // Infinite scroll state
         let currentPage = 1;
         let isLoading = false;
@@ -303,7 +326,7 @@
                     const data = await res.json();
                     if (data.ok && data.preferences && data.preferences.columnVisibility) {
                         const parsed = data.preferences.columnVisibility;
-                        headerOrder = Array.isArray(parsed.order) ? parsed.order.slice() : [];
+                        headerOrder = Array.isArray(parsed.order) && parsed.order.length > 0 ? parsed.order.slice() : [];
                         hiddenHeaders = new Set(parsed.hidden || []);
                         // Always ensure "Akcje" is not hidden
                         hiddenHeaders.delete('Akcje');
@@ -317,7 +340,7 @@
                 const saved = localStorage.getItem('columnVisibility');
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    headerOrder = Array.isArray(parsed.order) ? parsed.order.slice() : [];
+                    headerOrder = Array.isArray(parsed.order) && parsed.order.length > 0 ? parsed.order.slice() : [];
                     hiddenHeaders = new Set(parsed.hidden || []);
                     // Always ensure "Akcje" is not hidden
                     hiddenHeaders.delete('Akcje');
@@ -331,7 +354,7 @@
                     const saved = localStorage.getItem('columnVisibility');
                     if (saved) {
                         const parsed = JSON.parse(saved);
-                        headerOrder = Array.isArray(parsed.order) ? parsed.order.slice() : [];
+                        headerOrder = Array.isArray(parsed.order) && parsed.order.length > 0 ? parsed.order.slice() : [];
                         hiddenHeaders = new Set(parsed.hidden || []);
                         // Always ensure "Akcje" is not hidden
                         hiddenHeaders.delete('Akcje');
@@ -384,9 +407,18 @@
             // Remove "Akcje" from hiddenHeaders to ensure it's never hidden
             hiddenHeaders.delete('Akcje');
             
-            // Determine effective order: use saved headerOrder if present, else current headers
-            let orderBase = headerOrder.length ? headerOrder.filter(h => headers.includes(h)) : headers.slice();
-            // Append any new headers not yet in order (backfill)
+            // Determine effective order: use saved headerOrder if present, else use default order, else current headers
+            let orderBase;
+            if (headerOrder.length > 0) {
+                // User has saved preferences - use them
+                orderBase = headerOrder.filter(h => headers.includes(h));
+            } else {
+                // New user - use default order
+                orderBase = DEFAULT_HEADER_ORDER.filter(h => headers.includes(h));
+                console.log('📋 Using default column order for new user');
+            }
+            
+            // Append any headers from current headers that are not yet in order (backfill)
             headers.forEach(h => { if (!orderBase.includes(h)) orderBase.push(h); });
             
             // Always move "Akcje" to the end for sticky-right to work properly
@@ -683,7 +715,7 @@
                     if (userPermissions && userPermissions.assignToMachines) {
                         const select = document.createElement('select');
                         select.dataset.field = h;
-                        const options = ['Wytlaczarka 1','Wytlaczarka 2','Automaty Maly','Automaty Sredni','Arvor','Vicket/Mamata','Carraro','Manzoni','BOBINIARKI','Finish','Empty'];
+                        const options = ['Wytlaczarka 1','Wytlaczarka 2','Automaty Maly','Automaty Sredni','Arvor','Vicket/Mamata','Carraro','Manzoni','BOBINIARKI','Archiwum','Empty'];
                         options.forEach(opt => {
                             const o = document.createElement('option');
                             o.value = opt === 'Empty' ? '' : opt;
@@ -691,24 +723,63 @@
                             if (o.value === valueStr) o.selected = true;
                             select.appendChild(o);
                         });
-                        if (valueStr === 'Finish') {
-                            select.classList.add('finish-cell');
-                            td.classList.add('finish-cell');
+                        if (valueStr === 'Archiwum') {
+                            select.classList.add('archive-cell');
+                            td.classList.add('archive-cell');
                         }
-                        select.addEventListener('change', onCellEdit);
-                        select.addEventListener('blur', onCellEdit);
-                        select.addEventListener('change', () => {
-                            if (select.value === 'Finish') {
-                                select.classList.add('finish-cell');
-                                td.classList.add('finish-cell');
+                        select.addEventListener('change', async () => {
+                            if (select.value === 'Archiwum') {
+                                select.classList.add('archive-cell');
+                                td.classList.add('archive-cell');
+                                
+                                // Automatically archive the order
+                                if (rowId && userPermissions && userPermissions.archiveOrders) {
+                                    try {
+                                        showToast('Archiwizowanie...');
+                                        const res = await fetch(`/api/zamowienia/${encodeURIComponent(rowId)}/archive`, { method: 'POST' });
+                                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                                        const data = await res.json();
+                                        if (data && data.ok) {
+                                            showToast('Zarchiwizowano.');
+                                            tr.remove();
+                                            return; // Exit early since row is removed
+                                        } else {
+                                            throw new Error('Błąd archiwizacji');
+                                        }
+                                    } catch (e) {
+                                        console.error('Archive error:', e);
+                                        showToast('Błąd archiwizacji.');
+                                        // Reset select to previous value
+                                        select.value = valueStr || '';
+                                        select.classList.remove('archive-cell');
+                                        td.classList.remove('archive-cell');
+                                        return;
+                                    }
+                                }
                             } else {
-                                select.classList.remove('finish-cell');
-                                td.classList.remove('finish-cell');
+                                select.classList.remove('archive-cell');
+                                td.classList.remove('archive-cell');
+                                // For machine assignment, update the order field first, then send to plan
+                                // Only call onCellEdit if user has editOrders permission
+                                if (userPermissions && userPermissions.editOrders) {
+                                    onCellEdit({ target: select });
+                                }
+                                // Always try to send plan assignment if user has assignToMachines permission
+                                if (userPermissions && userPermissions.assignToMachines) {
+                                    try {
+                                        await sendPlanAssignment(rowId, (doc['Numer zlecenia'] || ''), select.value, h);
+                                    } catch (e) {
+                                        console.error('Error sending plan assignment:', e);
+                                        showToast('Błąd przypisania do maszyny');
+                                    }
+                                } else {
+                                    showToast('Brak uprawnień do przypisywania do maszyn');
+                                    // Reset select to previous value
+                                    select.value = valueStr || '';
+                                }
                             }
-                            try {
-                                sendPlanAssignment(rowId, (doc['Numer zlecenia'] || ''), select.value, h);
-                            } catch {}
                         });
+                        select.addEventListener('blur', onCellEdit);
                         td.appendChild(select);
                     } else {
                         // Read-only display
@@ -916,13 +987,16 @@
         }
 
         async function sendPlanAssignment(orderId, numerZlecenia, destination, kind) {
-            try {
-                await fetch('/api/plan/assign', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId, numerZlecenia, destination, kind })
-                });
-            } catch {}
+            const res = await fetch('/api/plan/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId, numerZlecenia, destination, kind })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Błąd przypisania do maszyny');
+            }
+            return await res.json();
         }
 
         let pending;
