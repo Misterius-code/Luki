@@ -30,8 +30,10 @@
         table { width: 100%; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 10px; margin: 0; }
         thead th { position: sticky; top: 0; z-index: 10; background: color-mix(in oklab, Canvas 92%, transparent); backdrop-filter: blur(6px); text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         th { position: relative; }
-        th, td { padding: 8px 10px; border-bottom: 1px solid rgba(127,127,127,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        th { min-width: 30px; } /* Allow very narrow columns */
+        th, td { padding: 8px 10px; box-sizing: border-box; border-bottom: 1px solid rgba(127,127,127,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* border-box + padding: ustawiona szerokosc kolumny = szerokosc widoczna na ekranie
+           (bez tego przegladarka doliczala padding i kolumny rosly o 20 px) */
+        th { min-width: 50px; } /* Allow very narrow columns */
         td { min-width: 0; } /* Allow cells to be smaller than content */
         td a, td select, td input[type="text"] { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; width: 100%; }
         td input[type="text"] { text-overflow: ellipsis; }
@@ -94,9 +96,9 @@
         .new-order-cell { background: color-mix(in oklab, Canvas 98%, transparent); border-top: 2px solid rgba(127,127,127,.3); }
         .new-order-cell > .tail-sticky { padding: 16px 12px; }
         /* Sticky actions column on the right */
-        .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); min-width: 92px; max-width: 92px; }
+        .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); min-width: 104px; max-width: 104px; }
         thead .sticky-right { background: color-mix(in oklab, Canvas 92%, transparent); }
-        thead th.sticky-right { position: sticky; top: 0; right: 0; z-index: 11; min-width: 92px; max-width: 92px; }
+        thead th.sticky-right { position: sticky; top: 0; right: 0; z-index: 11; min-width: 104px; max-width: 104px; }
         .actions { display: flex; gap: 4px; justify-content: center; }
         .btn-icon { appearance: none; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; padding: 4px; border-radius: 8px; cursor: pointer; line-height: 0; }
         .btn-icon:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
@@ -110,9 +112,9 @@
         /* Ensure "Akcje" column is always visible with minimum width */
         th[data-header="Akcje"],
         td[data-header="Akcje"] {
-            min-width: 92px !important;
-            max-width: 92px !important;
-            width: 92px !important;
+            min-width: 104px !important;
+            max-width: 104px !important;
+            width: 104px !important;
             padding-left: 6px !important;
             padding-right: 6px !important;
         }
@@ -323,9 +325,10 @@
         // Jedno miejsce do regulacji - zmiana tutaj przelicza wszystkie kolumny.
         const UI_SCALE = 0.8;
         // Minimalna szerokosc kolumny "Akcje" oraz zwyklej kolumny (przed skalowaniem).
-        // 115 * UI_SCALE = 92px - tyle potrzeba na 3 przyciski ikon (archiwum/druk/usun).
-        const ACTIONS_MIN_WIDTH = 115;
-        const MIN_COLUMN_WIDTH = 30;
+        // 130 * UI_SCALE = 104px - dzieki border-box miesci sie w tym padding
+        // i 3 przyciski ikon (archiwum/druk/usun).
+        const ACTIONS_MIN_WIDTH = 130;
+        const MIN_COLUMN_WIDTH = 50;
 
         // Zwraca szerokosc kolumny w px PO skalowaniu (UI_SCALE).
         // Zapisane szerokosci traktujemy jako "baze" i skalujemy je tylko przy rysowaniu,
