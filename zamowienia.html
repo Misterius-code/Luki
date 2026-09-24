@@ -654,6 +654,25 @@
             }
         }
 
+        // Szerokosc tabeli = suma szerokosci wszystkich kolumn.
+        // Bez tego (przy table-layout: fixed i nieaktualnej min-width) zwezenie jednej
+        // kolumny rozciagalo sasiadow - takze te po lewej stronie.
+        function zsynchronizujSzerokoscTabeli(th) {
+            const row = th.parentElement;
+            const table = th.closest('table');
+            if (!row || !table) return;
+            let suma = 0;
+            // Sumujemy szerokosci USTAWIONE (style.width), a nie zmierzone - zmierzone
+            // sa juz po ewentualnym rozlozeniu przez przegladarke, co dawalo bledna sume.
+            Array.from(row.children).forEach(cell => {
+                const w = parseFloat(cell.style.width);
+                suma += isFinite(w) && w > 0 ? w : cell.getBoundingClientRect().width;
+            });
+            const px = Math.ceil(suma) + 'px';
+            table.style.width = px;
+            table.style.minWidth = px;
+        }
+
         function setupColumnResize(th, headerName) {
             const resizeHandle = th.querySelector('.resize-handle');
             if (!resizeHandle) return;
@@ -673,26 +692,18 @@
 
             document.addEventListener('mousemove', (e) => {
                 if (!isResizing) return;
-                
+
                 const diff = e.pageX - startX;
                 // Minimalna szerokosc (w px ekranu, czyli po skalowaniu): "Akcje" vs pozostale
                 const minWidth = headerName === 'Akcje' ? Math.round(ACTIONS_MIN_WIDTH * UI_SCALE) : MIN_COLUMN_WIDTH;
                 const newWidth = Math.max(minWidth, startWidth + diff);
+                // Przy table-layout: fixed zmieniamy TYLKO te kolumne (komorki ida za naglowkiem),
+                // a szerokosc tabeli dopasowujemy do sumy kolumn - inaczej przegladarka
+                // rozciagala/zwężala pozostale kolumny, takze te po lewej stronie.
                 th.style.width = newWidth + 'px';
                 th.style.minWidth = newWidth + 'px';
                 th.style.maxWidth = newWidth + 'px'; // Lock width to prevent auto-expansion
-                
-                // Update all cells in this column
-                const columnIndex = Array.from(th.parentElement.children).indexOf(th);
-                const allRows = document.querySelectorAll('tbody tr');
-                allRows.forEach(row => {
-                    const cell = row.children[columnIndex];
-                    if (cell) {
-                        cell.style.width = newWidth + 'px';
-                        cell.style.minWidth = newWidth + 'px';
-                        cell.style.maxWidth = newWidth + 'px'; // Lock width to prevent auto-expansion
-                    }
-                });
+                zsynchronizujSzerokoscTabeli(th);
             });
 
             document.addEventListener('mouseup', async () => {
@@ -701,6 +712,7 @@
                     resizeHandle.classList.remove('resizing');
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
+                    zsynchronizujSzerokoscTabeli(th);
                     
                     // Zapisujemy szerokosc jako "baze" (bez skalowania), z minimum dla "Akcje"
                     const finalWidth = th.offsetWidth;
