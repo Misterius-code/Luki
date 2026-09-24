@@ -4,10 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nowe zamówienie - Karta Wyrobu</title>
+    <!-- Motyw (ciemny/jasny) ustawiany od razu, zeby nie bylo migniecia zlego motywu -->
+    <script>
+        (function () {
+            var theme = 'dark';
+            try {
+                if (localStorage.getItem('theme') === 'light') theme = 'light';
+            } catch (e) {}
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <style>
-        :root { color-scheme: light dark; }
-        html[data-theme="light"] { color-scheme: light; }
+        :root { color-scheme: dark; }
         html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="light"] { color-scheme: light; }
         body {
             margin: 0;
             font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
@@ -245,6 +255,24 @@
         </div>
 
         <form id="order-form">
+            <!-- Dodaj ze wzoru: wklej tekst z systemu klienta i uzupelnij pola automatycznie -->
+            <div class="card" style="margin-bottom: 16px;">
+                <div class="form-section">
+                    <h2 class="section-title">Dodaj ze wzoru</h2>
+
+                    <div class="form-group">
+                        <label for="wzor-tekst">Wklej zamówienie ze wzoru</label>
+                        <textarea id="wzor-tekst" rows="4" placeholder="Rodzaj Wyrobu: Worek PP Rozmiar: PP 230x380/30+40 Nadruk: Żelek Słonecznikowy Nakładanie: Druty Perforacja: Brak Pakowanie: Arkusz Ilość: 30tys Cena: 86,2"></textarea>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-primary" id="btn-wzor-ok">OK</button>
+                        <button type="button" class="btn" id="btn-wzor-clear">Wyczyść pole wzoru</button>
+                        <span id="wzor-info" style="font-size: 13px; opacity: .75;"></span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Podstawowe Dane zamówienia -->
             <div class="card">
                 <div class="form-section">
@@ -254,20 +282,8 @@
                         <label for="zleceniobiorca">Zleceniobiorca <span class="required">*</span></label>
                         <div class="radio-group">
                             <div class="radio-option">
-                                <input type="radio" id="zlec-mp" name="Zleceniobiorca" value="MP" required>
-                                <label for="zlec-mp">MP</label>
-                            </div>
-                            <div class="radio-option">
-                                <input type="radio" id="zlec-bc" name="Zleceniobiorca" value="BC" required>
-                                <label for="zlec-bc">BC</label>
-                            </div>
-                            <div class="radio-option">
                                 <input type="radio" id="zlec-bd" name="Zleceniobiorca" value="BD" required>
                                 <label for="zlec-bd">BD</label>
-                            </div>
-                            <div class="radio-option">
-                                <input type="radio" id="zlec-ml" name="Zleceniobiorca" value="ML" required>
-                                <label for="zlec-ml">ML</label>
                             </div>
                             <div class="radio-option">
                                 <input type="radio" id="zlec-kk" name="Zleceniobiorca" value="KK" required>
@@ -520,21 +536,25 @@
                                 <input type="checkbox" id="param-tasma-klejaca" name="Taśma klejąca" value="Taśma klejąca">
                                 <label for="param-tasma-klejaca">Taśma klejąca</label>
                             </div>
-                            <div class="checkbox-option">
-                                <input type="checkbox" id="param-zrywka" name="Zrywka" value="Zrywka">
-                                <label for="param-zrywka">Zrywka</label>
+                        </div>
+                    </div>
+
+                    <!-- Zrywka: osobna sekcja - wybor JEDNEJ z trzech opcji.
+                         Wybor zapisuje sie w kolumnie "Zrywka" w tabeli Zamowienia. -->
+                    <div class="form-group" style="margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(127,127,127,.3);">
+                        <label>Zrywka</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="zrywka-opaski" name="Zrywka" value="Opaski">
+                                <label for="zrywka-opaski">Opaski</label>
                             </div>
-                            <div class="checkbox-option">
-                                <input type="checkbox" id="param-opaski" name="Opaski" value="Opaski">
-                                <label for="param-opaski">Opaski</label>
+                            <div class="radio-option">
+                                <input type="radio" id="zrywka-klipsy" name="Zrywka" value="Klipsy">
+                                <label for="zrywka-klipsy">Klipsy</label>
                             </div>
-                            <div class="checkbox-option">
-                                <input type="checkbox" id="param-klipsy" name="Klipsy" value="Klipsy">
-                                <label for="param-klipsy">Klipsy</label>
-                            </div>
-                            <div class="checkbox-option">
-                                <input type="checkbox" id="param-druty" name="Druty" value="Druty">
-                                <label for="param-druty">Druty</label>
+                            <div class="radio-option">
+                                <input type="radio" id="zrywka-druty" name="Zrywka" value="Druty">
+                                <label for="zrywka-druty">Druty</label>
                             </div>
                         </div>
                     </div>
@@ -579,6 +599,18 @@
                 </div>
             </div>
 
+            <!-- Cena (pole wewnetrzne - NIE jest pokazywane na karcie wyrobu) -->
+            <div class="card">
+                <div class="form-section">
+                    <h2 class="section-title">Cena</h2>
+
+                    <div class="form-group">
+                        <label for="cena">Cena</label>
+                        <input type="text" id="cena" name="Cena" placeholder="np. 12,50 zł/kg">
+                    </div>
+                </div>
+            </div>
+
         </form>
         
         <!-- Fixed buttons at bottom center -->
@@ -604,25 +636,22 @@
         // Theme toggle
         document.addEventListener('DOMContentLoaded', () => {
             const toggle = document.getElementById('light-toggle');
-            try {
-                const saved = localStorage.getItem('theme');
-                if (saved === 'light') {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                    if (toggle) toggle.checked = true;
-                }
-            } catch {}
+            const label = document.getElementById('theme-label');
+
+            function applyTheme(theme) {
+                const isLight = theme === 'light';
+                document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+                if (toggle) toggle.checked = isLight;
+                if (label) label.textContent = isLight ? 'Jasny motyw' : 'Ciemny motyw';
+                try { localStorage.setItem('theme', isLight ? 'light' : 'dark'); } catch (e) {}
+            }
+
+            let savedTheme = 'dark';
+            try { if (localStorage.getItem('theme') === 'light') savedTheme = 'light'; } catch (e) {}
+            applyTheme(savedTheme);
 
             if (toggle) {
-                toggle.addEventListener('change', () => {
-                    const isLight = toggle.checked;
-                    if (isLight) {
-                        document.documentElement.setAttribute('data-theme', 'light');
-                        try { localStorage.setItem('theme', 'light'); } catch {}
-                    } else {
-                        document.documentElement.removeAttribute('data-theme');
-                        try { localStorage.removeItem('theme'); } catch {}
-                    }
-                });
+                toggle.addEventListener('change', () => applyTheme(toggle.checked ? 'light' : 'dark'));
             }
 
             // Show/hide "Pakowanie inne" text field
@@ -725,10 +754,20 @@
                     }
                 });
 
+                // Pola pomocnicze: sa czescia innych pol, nie moga zapisac sie osobno
+                const HELPER_FIELD_NAMES = [
+                    'Ilość jednostka', 'Nawój jednostka', 'Pakowanie inne', 'Perforacja wartość',
+                    'Zimny nóż', 'Taśma klejąca'
+                ];
+
                 // Combine all data (but skip fields that will be handled specially)
                 for (const [key, value] of formData.entries()) {
-                    // Skip "Ilość", "Nawój wartość", and "Pakowanie inne" - they will be combined with checkbox values
-                    if (key !== 'Ilość' && key !== 'Nawój wartość' && key !== 'Pakowanie inne' && value.trim()) {
+                    // "Ilość" i "Nawój wartość" sa skladane z pol wyboru nizej,
+                    // a pola z HELPER_FIELD_NAMES tylko zasmiecaja dane.
+                    if (key === 'Ilość' || key === 'Nawój wartość' || HELPER_FIELD_NAMES.includes(key)) {
+                        continue;
+                    }
+                    if (value.trim()) {
                         data[key] = value.trim();
                     }
                 }
@@ -811,8 +850,22 @@
                 // Remove "Pakowanie" from checkboxes to avoid duplication
                 delete checkboxes['Pakowanie'];
 
+                // Perforacja: typ (Makro/Mikro/Inne) + wartosc -> istniejaca kolumna "Perforacja"
+                const perforacjaTyp = radioGroups['Perforacja typ'] || '';
+                const perforacjaWartosc = formData.get('Perforacja wartość')?.trim() || '';
+                if (perforacjaTyp || perforacjaWartosc) {
+                    const parts = [];
+                    if (perforacjaTyp && perforacjaTyp !== 'Other') parts.push(perforacjaTyp);
+                    if (perforacjaWartosc) parts.push(perforacjaWartosc);
+                    if (perforacjaTyp === 'Other' && !perforacjaWartosc) parts.push('Other');
+                    if (parts.length > 0) {
+                        data['Perforacja'] = parts.join(', ');
+                    }
+                }
+                delete data['Perforacja typ'];
+
                 // Handle "Parametry dodatkowe" - combine all related checkboxes into one field
-                const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+                const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca'];
                 const parametryDodatkowe = [];
                 parametryDodatkoweFields.forEach(fieldName => {
                     if (checkboxes[fieldName] && checkboxes[fieldName].length > 0) {
@@ -831,6 +884,28 @@
                     } else if (checkboxes[key].length > 1) {
                         data[key] = checkboxes[key].join(', ');
                     }
+                });
+
+                // --- Przypisz wartosci do ISTNIEJACYCH kolumn -------------------------
+                // Formularz nazywa pola po swojemu, a w bazie sa juz wlasciwe kolumny.
+                // Bez tego powstawaly dodatkowe kolumny (np. "Ilość", "Szerokość Automaty").
+                const RENAME_TO_EXISTING_COLUMN = {
+                    'Ilość': 'Ilość kg/szt/mb',
+                    'Nawój wartość': 'Nawój na wałek (jaki/ile)',
+                    'Pakowanie': 'Pakowanie (szt.paczek/szt.zbiorowych)',
+                    'Szerokość Automaty': 'Szerokość',
+                    'Wysokość Automaty': 'Wysokość',
+                    'UWAGI Wytłaczarka': 'UWAGI',
+                    'Perforacja typ': 'Perforacja'
+                };
+                Object.entries(RENAME_TO_EXISTING_COLUMN).forEach(([formKey, columnKey]) => {
+                    if (data[formKey] === undefined) return;
+                    const value = String(data[formKey]).trim();
+                    const existing = data[columnKey] === undefined ? '' : String(data[columnKey]).trim();
+                    if (value && !existing) {
+                        data[columnKey] = data[formKey];
+                    }
+                    delete data[formKey];
                 });
 
                 // Validate required fields
@@ -883,6 +958,442 @@
                         form.reset();
                         showToast('Formularz został wyczyszczony');
                     }
+                });
+            }
+
+            // ------------------------------------------------------------------
+            // "Dodaj ze wzoru" - wklej tekst z systemu klienta, reszta uzupelni sie sama
+            // ------------------------------------------------------------------
+            const WZOR_LABELS = ['Rodzaj Wyrobu', 'Rozmiar', 'Materiał', 'Nadruk', 'Nakładanie', 'Perforacja', 'Pakowanie', 'Ilość', 'Cena', 'Zleceniodawca'];
+
+            // Zalogowany uzytkownik -> zleceniobiorca
+            const USER_TO_ZLECENIOBIORCA = {
+                'admin': 'KK',
+                'KamilK': 'KK',
+                'BeataD': 'BD'
+            };
+
+            // "Nakładanie" ze wzoru -> wartosc kolumny "Zrywka"
+            const NAKLADANIE_TO_ZRYWKA = {
+                'druty': 'Druty',
+                'klipsy': 'Klipsy',
+                'trytyki': 'Opaski'   // w systemie klienta "Trytyki" to nasze "Opaski"
+            };
+
+            // Rozbija wklejony tekst na pola wg etykiet (dziala tez gdy wszystko jest w jednej linii)
+            function parseWzor(text) {
+                const out = {};
+                if (!text) return out;
+                const norm = String(text).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ');
+                const pattern = WZOR_LABELS
+                    .map(l => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                    .join('|');
+                const re = new RegExp('(' + pattern + ')\\s*:\\s*', 'gi');
+                const hits = [];
+                let m;
+                while ((m = re.exec(norm)) !== null) {
+                    hits.push({ label: m[1], at: m.index, from: re.lastIndex });
+                }
+                hits.forEach((hit, i) => {
+                    const stop = i + 1 < hits.length ? hits[i + 1].at : norm.length;
+                    const value = norm.slice(hit.from, stop).trim().replace(/\s*,\s*$/, '');
+                    const known = WZOR_LABELS.find(l => l.toLowerCase() === hit.label.toLowerCase());
+                    out[known || hit.label] = value;
+                });
+                return out;
+            }
+
+            // Wpisuje wartosc do listy wyboru; jesli nie ma takiej opcji - dopisuje ja
+            function setSelectValue(select, value) {
+                if (!select || !value) return false;
+                const v = String(value).trim().toLowerCase();
+                const opt = Array.from(select.options).find(o => o.value.trim().toLowerCase() === v);
+                if (opt) { select.value = opt.value; return true; }
+                const created = document.createElement('option');
+                created.value = String(value).trim();
+                created.textContent = String(value).trim();
+                select.appendChild(created);
+                select.value = created.value;
+                return true;
+            }
+
+            // Zdejmuje zaznaczenie z podanych pol (zeby stare wybory nie zostaly obok nowych)
+            function clearCheckboxes(ids) {
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el.checked) {
+                        el.checked = false;
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            }
+
+            // Wyciaga ilosc sztuk z tekstu: "30tys" -> 30000, "2 x po 28 tyś" -> 56000, "5000" -> 5000
+            function parseIloscSztuk(text) {
+                const t = String(text || '').toLowerCase().replace(/,/g, '.').replace(/\s+/g, ' ').trim();
+                if (!t) return null;
+                const tys = /tys|tyś|tysi/.test(t);
+                const multi = t.match(/(\d+(?:\.\d+)?)\s*x\s*po\s*(\d+(?:\.\d+)?)/);
+                if (multi) {
+                    const v = Number(multi[1]) * Number(multi[2]);
+                    return Math.round(tys ? v * 1000 : v);
+                }
+                const num = t.match(/(\d+(?:\.\d+)?)/);
+                if (!num) return null;
+                return Math.round(tys ? Number(num[1]) * 1000 : Number(num[1]));
+            }
+
+            // Waga w kg z tekstu: "4x25kg" -> {total:100, jednostkowa:25}, "500kg" -> {total:500}, "100" -> {total:100}
+            function parseWaga(text) {
+                const t = String(text || '').toLowerCase().replace(/\s+/g, '');
+                if (!t) return null;
+                const multi = t.match(/(\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)\s*kg/);
+                if (multi) {
+                    const szt = Number(multi[1].replace(',', '.'));
+                    const jedn = Number(multi[2].replace(',', '.'));
+                    return { total: szt * jedn, jednostkowa: jedn };
+                }
+                const single = t.match(/(\d+(?:[.,]\d+)?)\s*kg/);
+                if (single) return { total: Number(single[1].replace(',', '.')), jednostkowa: null };
+                const plain = t.match(/^(\d+(?:[.,]\d+)?)$/);
+                if (plain) return { total: Number(plain[1].replace(',', '.')), jednostkowa: null };
+                return null;
+            }
+
+            // Liczba bez zbednych zer: 100 -> "100", 39.9 -> "39,9"
+            function formatKg(n) {
+                return String(Math.round(Number(n) * 100) / 100).replace('.', ',');
+            }
+
+            async function applyWzor() {
+                const textarea = document.getElementById('wzor-tekst');
+                const info = document.getElementById('wzor-info');
+                const d = parseWzor(textarea ? textarea.value : '');
+                const filled = [];
+                let wymiary = null; // wymiary z "Rozmiar" - potrzebne do wyliczenia "Tworzywo"
+                let typWyrobu = null; // 'worek' (240x370/30+40) albo 'arkusz' (1400x2000x0,035)
+
+                // Material: "PP"/"PE" w rodzaju wyrobu, rozmiarze albo w polu "Materiał"
+                const opisWyrobu = (d['Rodzaj Wyrobu'] || '') + ' ' + (d['Rozmiar'] || '') + ' ' + (d['Materiał'] || '');
+                const czyPP = /(^|[^a-z])pp([^a-z]|$)/i.test(opisWyrobu);
+                const czyPE = !czyPP && /(^|[^a-z])pe([^a-z]|$)/i.test(opisWyrobu);
+                // Gestosci: PP i PE z oryginalu = 920, PE wtorny = 950 (ustalenia z uzytkownikiem)
+                const GESTOSC_920 = 920, GESTOSC_WTORNY = 950;
+                const materialZeWzoru = String(d['Materiał'] || '').trim();
+                const gestosc = /wt[óo]rn/i.test(materialZeWzoru) ? GESTOSC_WTORNY : GESTOSC_920;
+                // Nazwa materialu dla workow chlebowych: PP zostaje "PP",
+                // PE bierze nazwe z pola "Materiał" (oryginał/wtórny), a bez niego "Oryginał"
+                const materialTworzywa = czyPP ? 'PP' : (czyPE ? (materialZeWzoru || 'Oryginał') : null);
+
+                if (Object.keys(d).length === 0) {
+                    showToast('Nie rozpoznano wzoru - wklej tekst z etykietami (Rodzaj Wyrobu:, Rozmiar:, Nadruk:, ...)', true);
+                    return;
+                }
+
+                // 1) Zleceniobiorca + numer zlecenia - wg zalogowanego uzytkownika i kolejnosci zlecen
+                try {
+                    const me = await (await fetch('/api/user/me')).json();
+                    const kto = me && me.username ? USER_TO_ZLECENIOBIORCA[me.username] : null;
+                    if (kto) {
+                        const radio = document.getElementById(kto === 'KK' ? 'zlec-kk' : 'zlec-bd');
+                        if (radio) {
+                            radio.checked = true;
+                            radio.dispatchEvent(new Event('change', { bubbles: true }));
+                            filled.push('Zleceniobiorca ' + kto + ' + numer zlecenia');
+                        }
+                    } else {
+                        showToast('Nie wiem, kogo przypisac (' + (me && me.username) + ') - wybierz zleceniobiorce recznie', true);
+                    }
+                } catch (e) {
+                    console.warn('Nie udalo sie ustalic uzytkownika:', e);
+                }
+
+                // 2) Rodzaj Wyrobu -> Nazwa wyrobu gotowego
+                //    Jesli "PP" jest w rodzaju wyrobu albo w rozmiarze - na 99% jest to "Worek PP".
+                const nazwaSelect = document.getElementById('nazwa-wyrobu');
+                const rodzajZeWzoru = String(d['Rodzaj Wyrobu'] || '').trim();
+                const rodzajJestNaLiscie = !!rodzajZeWzoru && !!nazwaSelect &&
+                    Array.from(nazwaSelect.options).some(o => o.value.trim().toLowerCase() === rodzajZeWzoru.toLowerCase());
+                if (rodzajJestNaLiscie) {
+                    setSelectValue(nazwaSelect, rodzajZeWzoru);
+                    filled.push('Nazwa wyrobu gotowego');
+                } else if (czyPP) {
+                    setSelectValue(nazwaSelect, 'Worek PP');
+                    filled.push('Nazwa wyrobu gotowego: Worek PP (PP we wzorze)');
+                } else if (rodzajZeWzoru) {
+                    setSelectValue(nazwaSelect, rodzajZeWzoru);
+                    filled.push('Nazwa wyrobu gotowego');
+                }
+
+                // 3) Rozmiar -> Wymiar wyrobu gotowego + wymiary szczegolowe
+                //    Worki (PP/PE):          240x370/30+40    -> szerokosc/wysokosc/zakladka/zrywka
+                //    Arkusz/Rekaw/Polrekaw:  1400x2000x0,035 -> tylko pierwsza wartosc + grubosc
+                if (d['Rozmiar'] !== undefined && d['Rozmiar'] !== '') {
+                    const rozmiar = String(d['Rozmiar']).trim();
+                    const dim = document.getElementById('wymiar-wyrobu');
+                    if (dim) { dim.value = rozmiar; filled.push('Wymiar wyrobu gotowego'); }
+
+                    const arkuszMatch = rozmiar.match(/(\d+)\s*[xX×]\s*(\d+)\s*[xX×]\s*(\d+(?:[.,]\d+)?)/);
+                    const worekMatch = rozmiar.match(/(\d+)\s*[xX×]\s*(\d+)\s*(?:\/\s*(\d+))?\s*(?:\+\s*(\d+))?/);
+                    // Rekaw: "szerokosc x grubosc", Polrekaw: "1/2 szerokosc x grubosc" (tylko 2 wartosci)
+                    const rekawMatch = rozmiar.match(/^(?:1\s*\/\s*2\s*)?\D*(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*$/);
+
+                    if (arkuszMatch) {
+                        // Worek prosty: szerokosc x dlugosc x grubosc
+                        // (Arkusz to ten sam zapis, ale pojedyncza warstwa - wtedy 1 zamiast 2)
+                        const czyArkusz = /arkusz/i.test(rozmiar);
+                        typWyrobu = czyArkusz ? 'arkusz' : 'worek3';
+                        wymiary = {
+                            szerokosc: Number(arkuszMatch[1]),
+                            wysokosc: Number(arkuszMatch[2]),
+                            grubosc: Number(arkuszMatch[3].replace(',', '.')),
+                            warstwy: czyArkusz ? 1 : 2
+                        };
+                        // Całkowita szerokość rękawa = pierwsza wartość z rozmiaru
+                        const srA = document.getElementById('szerokosc-rekawa');
+                        if (srA) { srA.value = arkuszMatch[1]; filled.push('Całkowita szerokość rękawa'); }
+                        // Grubość (sekcja wytłaczarki)
+                        const grA = document.getElementById('grubosc');
+                        if (grA) { grA.value = arkuszMatch[3].replace('.', ','); filled.push('Grubość'); }
+                        if (czyArkusz) {
+                            // arkusza nie opisują pola automaty
+                            const sw = document.getElementById('szerokosc-automaty'); if (sw) sw.value = '';
+                            const wy = document.getElementById('wysokosc-automaty'); if (wy) wy.value = '';
+                        } else {
+                            // worek prosty: Szerokość i Wysokość w sekcji automaty
+                            const sw = document.getElementById('szerokosc-automaty'); if (sw) { sw.value = arkuszMatch[1]; filled.push('Szerokość'); }
+                            const wy = document.getElementById('wysokosc-automaty'); if (wy) { wy.value = arkuszMatch[2]; filled.push('Wysokość'); }
+                        }
+                    } else if (rekawMatch) {
+                        // Rekaw / Polrekaw: szerokosc x grubosc - waga jest w polu "Ilość"
+                        typWyrobu = 'rekaw';
+                        wymiary = {
+                            szerokosc: Number(rekawMatch[1]),
+                            grubosc: Number(rekawMatch[2].replace(',', '.'))
+                        };
+                        const sr = document.getElementById('szerokosc-rekawa');
+                        if (sr) { sr.value = rekawMatch[1]; filled.push('Całkowita szerokość rękawa'); }
+                        const gr = document.getElementById('grubosc');
+                        if (gr) { gr.value = rekawMatch[2].replace('.', ','); filled.push('Grubość'); }
+                    } else if (worekMatch) {
+                        typWyrobu = 'worek';
+                        wymiary = {
+                            szerokosc: Number(worekMatch[1]),
+                            wysokosc: Number(worekMatch[2]),
+                            zakladka: worekMatch[3] ? Number(worekMatch[3]) : 0,
+                            zrywka: worekMatch[4] ? Number(worekMatch[4]) : 0
+                        };
+                        // Przy PE szerokosc idzie do "Całkowita szerokość rękawa", przy PP do "Szerokość"
+                        if (czyPE) {
+                            const sr = document.getElementById('szerokosc-rekawa');
+                            if (sr) { sr.value = worekMatch[1]; filled.push('Całkowita szerokość rękawa'); }
+                            // przy PE pole "Szerokość" nie jest uzywane - czyscimy, zeby nie zostala stara wartosc
+                            const sw = document.getElementById('szerokosc-automaty');
+                            if (sw) sw.value = '';
+                        } else {
+                            const sw = document.getElementById('szerokosc-automaty');
+                            if (sw) { sw.value = worekMatch[1]; filled.push('Szerokość'); }
+                            // przy PP "Całkowita szerokość rękawa" nie jest z tego wzoru
+                            const sr = document.getElementById('szerokosc-rekawa');
+                            if (sr) sr.value = '';
+                        }
+                        const pairs = [
+                            ['wysokosc-automaty', worekMatch[2], 'Wysokość'],
+                            ['zakatka-denna', worekMatch[3], 'Zakładka denna'],
+                            ['zrywka-klapka', worekMatch[4], 'Zrywka/Klapka']
+                        ];
+                        pairs.forEach(([id, val, label]) => {
+                            if (val === undefined) return;
+                            const el = document.getElementById(id);
+                            if (el) { el.value = val; filled.push(label); }
+                        });
+                        // Worki chlebowe PE: grubosc 25um
+                        if (czyPE) {
+                            const gr = document.getElementById('grubosc');
+                            if (gr) { gr.value = '0,025'; filled.push('Grubość: 0,025'); }
+                        }
+                    } else {
+                        showToast('Nie rozpoznalem rozmiaru (240x370/30+40, 700x1000x0,03, 600x0,035)', true);
+                    }
+                }
+
+                // 3b) Zgrzew: worek chlebowy (z zakładką i zrywką) => boczny,
+                //     worek prosty (szerokość x długość x grubość) => denny,
+                //     pozostałe przypadki (arkusz, rękaw, półrękaw) => nic nie zaznaczamy
+                const zgrzewBocznyEl = document.getElementById('zgrzew-boczny');
+                const zgrzewDennyEl = document.getElementById('zgrzew-denny');
+                if (zgrzewBocznyEl) zgrzewBocznyEl.checked = false;
+                if (zgrzewDennyEl) zgrzewDennyEl.checked = false;
+                if (typWyrobu === 'worek' && zgrzewBocznyEl) {
+                    zgrzewBocznyEl.checked = true;
+                    filled.push('Zgrzew: boczny');
+                } else if (typWyrobu === 'worek3' && zgrzewDennyEl) {
+                    zgrzewDennyEl.checked = true;
+                    filled.push('Zgrzew: denny');
+                }
+
+                // 4) Nadruk -> DRUKARNIA
+                if (d['Nadruk'] !== undefined) {
+                    const el = document.getElementById('drukarnia');
+                    if (el) { el.value = d['Nadruk']; filled.push('DRUKARNIA'); }
+                }
+
+                // 5) Nakładanie -> Zrywka (Druty/Klipsy/Trytyki->Opaski; "Układany" pomijamy)
+                if (d['Nakładanie'] !== undefined) {
+                    const zrywka = NAKLADANIE_TO_ZRYWKA[String(d['Nakładanie']).trim().toLowerCase()];
+                    const radioIds = { 'Druty': 'zrywka-druty', 'Klipsy': 'zrywka-klipsy', 'Opaski': 'zrywka-opaski' };
+                    if (zrywka) {
+                        const r = document.getElementById(radioIds[zrywka]);
+                        if (r) { r.checked = true; filled.push('Zrywka: ' + zrywka); }
+                    }
+                }
+
+                // 6) Perforacja -> Makro/Mikro + ilosc otworow
+                if (d['Perforacja'] !== undefined) {
+                    const text = String(d['Perforacja']).trim();
+                    const low = text.toLowerCase();
+                    const ilosc = (text.match(/\d+/) || [])[0] || '';
+                    const wartoscEl = document.getElementById('perforacja-wartosc');
+                    if (low.includes('mikro') || low.includes('makro')) {
+                        const r = document.getElementById(low.includes('mikro') ? 'perf-mikro' : 'perf-makro');
+                        if (r) r.checked = true;
+                        if (wartoscEl) wartoscEl.value = ilosc; // brak ilosci => czysci pole
+                        filled.push('Perforacja: ' + text);
+                    } else if (low && low !== 'brak' && low !== 'nie') {
+                        const r = document.getElementById('perf-other');
+                        if (r) r.checked = true;
+                        if (wartoscEl) wartoscEl.value = text;
+                        filled.push('Perforacja: ' + text);
+                    }
+                }
+
+                // 7) Pakowanie -> Worek/Karton, inaczej "Inne" + wartosc
+                if (d['Pakowanie'] !== undefined) {
+                    const text = String(d['Pakowanie']).trim();
+                    const low = text.toLowerCase();
+                    if (text) {
+                        // najpierw zdejmujemy stara grupe, zeby stare zaznaczenie nie zostalo
+                        clearCheckboxes(['pak-worek', 'pak-karton', 'pak-other']);
+                        if (low.includes('worek')) {
+                            const r = document.getElementById('pak-worek');
+                            if (r) r.checked = true;
+                        } else if (low.includes('karton')) {
+                            const r = document.getElementById('pak-karton');
+                            if (r) r.checked = true;
+                        } else {
+                            const r = document.getElementById('pak-other');
+                            if (r) {
+                                r.checked = true;
+                                r.dispatchEvent(new Event('change', { bubbles: true }));
+                                const t = document.getElementById('pakowanie-other');
+                                if (t) t.value = text;
+                            }
+                        }
+                        filled.push('Pakowanie: ' + text);
+                    }
+                }
+
+                // 8) Ilość -> jednostka + wartosc do pola tekstowego
+                if (d['Ilość'] !== undefined) {
+                    const text = String(d['Ilość']).trim();
+                    const low = text.toLowerCase();
+                    clearCheckboxes(['unit-kg', 'unit-szt', 'unit-mb', 'unit-other']);
+                    let unitId = null;
+                    if (/(^|[^a-z])kg|kilogram/.test(low)) unitId = 'unit-kg';
+                    else if (/\bszt\b|sztuk/.test(low)) unitId = 'unit-szt';
+                    else if (/\bmb\b|metr/.test(low)) unitId = 'unit-mb';
+                    if (unitId) {
+                        const r = document.getElementById(unitId);
+                        if (r) r.checked = true;
+                    }
+                    const v = document.getElementById('ilosc-wartosc');
+                    if (v) v.value = text;
+                    filled.push('Ilość kg/szt/mb');
+                }
+
+                // 8b) Tworzywo + waga
+                //   Worek chlebowy (240x370/30+40): "PP 840; 140kg" / "Oryginał 840; 140kg"
+                //     masa = szerokosc * tasma / 1e6 * 0,000025 * gestosc * ilosc
+                //   Worek prosty / Arkusz (700x1000x0,03): "wtórny; 40kg"
+                //     masa = szerokosc * dlugosc * grubosc * warstwy * gestosc * ilosc
+                //   Rekaw / Polrekaw (600x0,035): waga jest juz podana w "Ilość" (np. 4x25kg = 100kg)
+                //   Wagi zaokraglamy W GORE do pelnych kg (Math.ceil)
+                if (typWyrobu && wymiary) {
+                    const iloscTekst = String(d['Ilość'] || '').toLowerCase();
+
+                    if (typWyrobu === 'rekaw') {
+                        const waga = parseWaga(d['Ilość']);
+                        if (waga && waga.total) {
+                            const material = materialZeWzoru || materialTworzywa || 'Oryginał';
+                            const wartosc = material + '; ' + formatKg(waga.total) + 'kg';
+                            const el = document.getElementById('tworzywo');
+                            if (el) { el.value = wartosc; filled.push('Tworzywo: ' + wartosc); }
+                            // zapis "4x25kg" => Nawój na wałek: KG + 25
+                            if (waga.jednostkowa) {
+                                const chk = document.getElementById('nawoj-kg');
+                                if (chk) { chk.checked = true; chk.dispatchEvent(new Event('change', { bubbles: true })); }
+                                const nv = document.getElementById('nawoj-wartosc');
+                                if (nv) { nv.value = String(waga.jednostkowa); filled.push('Nawój na wałek: KG ' + waga.jednostkowa); }
+                            }
+                        } else {
+                            showToast('Tworzywo: w "Ilość" nie widze wagi (np. 100kg albo 4x25kg)', true);
+                        }
+                    } else {
+                        const toSztuki = /szt|ty[śs]|tys/.test(iloscTekst);
+                        const toMasaLubDlugosc = /(^|[^a-z])kg|kilogram|\bmb\b|metr/.test(iloscTekst);
+                        const iloscSztuk = (toSztuki || !toMasaLubDlugosc) ? parseIloscSztuk(iloscTekst) : null;
+
+                        if (!iloscSztuk) {
+                            showToast('Tworzywo: nie znam ilosci sztuk (wzor podaje "' + (d['Ilość'] || '') + '")', true);
+                        } else if (typWyrobu === 'worek3' || typWyrobu === 'arkusz') {
+                            const masa = (wymiary.szerokosc / 1000) * (wymiary.wysokosc / 1000) *
+                                (wymiary.grubosc / 1000) * wymiary.warstwy * gestosc * iloscSztuk;
+                            const wartosc = (materialZeWzoru || materialTworzywa || 'Oryginał') + '; ' + Math.ceil(masa) + 'kg';
+                            const el = document.getElementById('tworzywo');
+                            if (el) { el.value = wartosc; filled.push('Tworzywo: ' + wartosc); }
+                        } else if (materialTworzywa) {
+                            // worki chlebowe: grubosc 25um = 0,000025 m
+                            const tasma = (wymiary.wysokosc + wymiary.zakladka) * 2 + wymiary.zrywka;
+                            const masa = (wymiary.szerokosc * tasma / 1000000) * 0.000025 * gestosc * iloscSztuk;
+                            const wartosc = materialTworzywa + ' ' + Math.round(tasma) + '; ' + Math.ceil(masa) + 'kg';
+                            const el = document.getElementById('tworzywo');
+                            if (el) { el.value = wartosc; filled.push('Tworzywo: ' + wartosc); }
+                        } else {
+                            showToast('Tworzywo: nie wiem czy to PP czy PE (brak "PP"/"PE" we wzorze)', true);
+                        }
+                    }
+                } else if (czyPP || czyPE) {
+                    showToast('Tworzywo: brak rozmiaru w znanym formacie', true);
+                }
+
+                // 9) Cena (bez znacznika waluty ",-", ale jednostka np. "/szt" zostaje)
+                if (d['Cena'] !== undefined && d['Cena'] !== '') {
+                    const cena = String(d['Cena']).trim()
+                        .replace(/\s*,?\s*-+(?=\/|\s*$)/g, '')
+                        .replace(/\s*z[lł]\b/gi, '')
+                        .replace(/\s+\//g, '/')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    const el = document.getElementById('cena');
+                    if (el) { el.value = cena; filled.push('Cena'); }
+                }
+
+                if (info) {
+                    info.textContent = filled.length ? 'Uzupelnione: ' + filled.join(', ') : 'Nic nie uzupelniono';
+                }
+                showToast(filled.length ? ('Uzupelniono z wzoru: ' + filled.length + ' pol') : 'Nic nie uzupelniono');
+            }
+
+            const wzorOkBtn = document.getElementById('btn-wzor-ok');
+            const wzorClearBtn = document.getElementById('btn-wzor-clear');
+            const wzorTextarea = document.getElementById('wzor-tekst');
+            if (wzorOkBtn) wzorOkBtn.addEventListener('click', applyWzor);
+            if (wzorClearBtn) {
+                wzorClearBtn.addEventListener('click', () => {
+                    if (wzorTextarea) wzorTextarea.value = '';
+                    const info = document.getElementById('wzor-info');
+                    if (info) info.textContent = '';
+                    if (wzorTextarea) wzorTextarea.focus();
                 });
             }
         });

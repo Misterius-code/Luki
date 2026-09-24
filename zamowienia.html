@@ -4,23 +4,33 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Zamówienia</title>
+    <!-- Motyw (ciemny/jasny) ustawiany od razu, zeby nie bylo migniecia zlego motywu -->
+    <script>
+        (function () {
+            var theme = 'dark';
+            try {
+                if (localStorage.getItem('theme') === 'light') theme = 'light';
+            } catch (e) {}
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <style>
-        :root { color-scheme: light dark; }
-        html[data-theme="light"] { color-scheme: light; }
+        :root { color-scheme: dark; }
         html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="light"] { color-scheme: light; }
         body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
-        .container { max-width: none; width: 100%; margin: 16px 0; padding: 0 16px; }
+        .container { max-width: none; width: 100%; margin: 12px 0; padding: 0 16px; box-sizing: border-box; }
         h1 { font-size: 20px; margin: 0; font-weight: 600; }
         /* Header styles moved to header.css */
         .card { background: Canvas; color: CanvasText; border: 1px solid rgba(127,127,127,.25); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 0; overflow: hidden; }
-        .table-wrap { width: 100%; overflow-x: auto; overflow-y: auto; padding: 0; margin: 0; max-height: calc(100vh - 200px); }
+        .table-wrap { width: 100%; overflow-x: auto; overflow-y: auto; padding: 0; margin: 0; max-height: calc(100vh - 140px); }
         .table-wrap::-webkit-scrollbar { width: 17px; height: 17px; }
         .table-wrap::-webkit-scrollbar-track { background: transparent; }
         .table-wrap::-webkit-scrollbar-thumb { background: rgba(127,127,127,.3); border-radius: 8px; }
         table { width: 100%; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 10px; margin: 0; }
         thead th { position: sticky; top: 0; z-index: 10; background: color-mix(in oklab, Canvas 92%, transparent); backdrop-filter: blur(6px); text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         th { position: relative; }
-        th, td { padding: 10px 12px; border-bottom: 1px solid rgba(127,127,127,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid rgba(127,127,127,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         th { min-width: 30px; } /* Allow very narrow columns */
         td { min-width: 0; } /* Allow cells to be smaller than content */
         td a, td select, td input[type="text"] { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; width: 100%; }
@@ -38,57 +48,73 @@
             background: transparent;
         }
         .resize-handle:hover {
-            background: white;
+            background: color-mix(in oklab, CanvasText 45%, transparent);
             opacity: 0.8;
         }
         .resize-handle.resizing {
-            background: white;
+            background: color-mix(in oklab, CanvasText 60%, transparent);
             opacity: 1;
         }
         thead th:first-child { border-top-left-radius: 12px; }
         thead th:last-child { border-top-right-radius: 12px; }
         table.header-shadow thead th { box-shadow: 0 2px 0 rgba(127,127,127,.25), 0 6px 12px rgba(0,0,0,.08); }
-        tbody tr:nth-child(even) { background: color-mix(in oklab, Canvas 96%, transparent); }
+        /* Zebra: co drugi wiersz w lekko innym odcieniu - latwiejsze czytanie */
+        tbody tr:nth-child(even) { background: color-mix(in oklab, CanvasText 7%, Canvas); }
+        tbody tr:nth-child(even) .sticky-right { background: color-mix(in oklab, CanvasText 7%, Canvas); }
         tbody tr:hover { 
             background: color-mix(in oklab, #60a5fa 15%, Canvas) !important; 
             outline: 2px solid color-mix(in oklab, #60a5fa 40%, transparent);
             outline-offset: -2px;
         }
+        /* Kolumna "Akcje" tez podswietla sie przy hover (jest nieprzezroczysta) */
+        tbody tr:hover .sticky-right { background: color-mix(in oklab, #60a5fa 15%, Canvas); }
         .skeleton { display: inline-block; height: 1em; width: 8ch; border-radius: 4px; background: linear-gradient(90deg, rgba(127,127,127,.15), rgba(127,127,127,.25), rgba(127,127,127,.15)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
         @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
-        td input { width: 100%; max-width: 360px; border: 0 !important; box-shadow: none !important; background: transparent; color: inherit; padding: 6px 6px; border-radius: 6px; outline: none; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        td input { width: 100%; max-width: 360px; border: 0 !important; box-shadow: none !important; background: transparent; color: inherit; padding: 4px 6px; font-size: 12px; border-radius: 6px; outline: none; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         td input:focus { outline: 2px solid #60a5fa; outline-offset: -2px; background: color-mix(in oklab, Canvas 98%, transparent); box-shadow: none; }
         .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: color-mix(in oklab, CanvasText 5%, Canvas); color: CanvasText; border: 1px solid rgba(127,127,127,.3); padding: 10px 14px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .2s ease; font-size: 14px; }
         .toast.show { opacity: 1; }
-        td input { width: 100%; max-width: 360px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; padding: 6px 8px; border-radius: 8px; outline: none; }
+        td input { width: 100%; max-width: 360px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; padding: 4px 6px; font-size: 12px; border-radius: 8px; outline: none; }
         td input:focus { border-color: color-mix(in oklab, CanvasText 50%, transparent); background: color-mix(in oklab, Canvas 96%, transparent); }
-        td select { width: 100%; max-width: 360px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; padding: 6px 8px; border-radius: 8px; outline: none; }
+        td select { width: 100%; max-width: 360px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; padding: 4px 6px; font-size: 12px; border-radius: 8px; outline: none; }
         td select:focus { border-color: color-mix(in oklab, CanvasText 50%, transparent); background: color-mix(in oklab, Canvas 96%, transparent); }
         .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: color-mix(in oklab, CanvasText 5%, Canvas); color: CanvasText; border: 1px solid rgba(127,127,127,.3); padding: 10px 14px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .2s ease; font-size: 14px; }
         .toast.show { opacity: 1; }
         .footer { padding: 10px 12px; font-size: 12px; color: color-mix(in oklab, CanvasText 65%, transparent); }
-        .loading-more { text-align: center; padding: 20px; color: color-mix(in oklab, CanvasText 60%, transparent); font-size: 14px; }
-        .loading-more::before { content: '⏳ '; }
-        .no-more-data { text-align: center; padding: 20px; color: color-mix(in oklab, CanvasText 50%, transparent); font-size: 12px; }
+        .loading-more { text-align: left; color: color-mix(in oklab, CanvasText 60%, transparent); font-size: 14px; }
+        .loading-more > .tail-sticky::before { content: '⏳ '; }
+        .no-more-data { text-align: left; color: color-mix(in oklab, CanvasText 50%, transparent); font-size: 12px; }
+        /* Wiersze (komunikaty + przycisk) rozciągnięte na CAŁĄ (bardzo szeroką) tabelę:
+           komórka jest za szeroka, więc treść jest wyśrodkowana w WIDOCZNYM obszarze tabeli
+           (sticky) — inaczej uciekałaby poza ekran przy przewijaniu w poziomie. */
+        .tail-cell { padding: 0 !important; text-align: center; overflow: visible !important; }
+        .tail-cell > .tail-sticky { position: sticky; left: calc(50vw - 17px); transform: translateX(-50%); display: block; width: max-content; max-width: 100%; }
+        .table-message { color: color-mix(in oklab, CanvasText 70%, transparent); font-size: 14px; }
+        .table-message > .tail-sticky, .no-more-data > .tail-sticky, .loading-more > .tail-sticky { padding: 20px 12px; }
+        .new-order-cell { background: color-mix(in oklab, Canvas 98%, transparent); border-top: 2px solid rgba(127,127,127,.3); }
+        .new-order-cell > .tail-sticky { padding: 16px 12px; }
         /* Sticky actions column on the right */
-        .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); min-width: 100px; max-width: 100px; }
+        .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); min-width: 92px; max-width: 92px; }
         thead .sticky-right { background: color-mix(in oklab, Canvas 92%, transparent); }
-        thead th.sticky-right { position: sticky; top: 0; right: 0; z-index: 11; min-width: 100px; max-width: 100px; }
-        .actions { display: inline-flex; gap: 4px; justify-content: center; }
-        .btn-icon { appearance: none; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; padding: 6px; border-radius: 8px; cursor: pointer; line-height: 0; }
+        thead th.sticky-right { position: sticky; top: 0; right: 0; z-index: 11; min-width: 92px; max-width: 92px; }
+        .actions { display: flex; gap: 4px; justify-content: center; }
+        .btn-icon { appearance: none; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; padding: 4px; border-radius: 8px; cursor: pointer; line-height: 0; }
         .btn-icon:hover { background: color-mix(in oklab, Canvas 92%, transparent); }
+        /* Mniejszy przycisk ikony TYLKO w tabeli (header.css ustawia 6px i laduje sie pozniej) */
+        th .btn-icon, td .btn-icon { padding: 4px; }
         .icon { width: 16px; height: 16px; display: inline-block; }
-        .icon-archive { color: #ef4444; }
+        .icon-archive { color: #10b981; }
+        .icon-trash { color: #ef4444; }
         .icon-print { color: #f59e0b; }
         .icon-settings { color: color-mix(in oklab, CanvasText 70%, transparent); }
         /* Ensure "Akcje" column is always visible with minimum width */
         th[data-header="Akcje"],
         td[data-header="Akcje"] {
-            min-width: 100px !important;
-            max-width: 100px !important;
-            width: 100px !important;
-            padding-left: 8px !important;
-            padding-right: 8px !important;
+            min-width: 92px !important;
+            max-width: 92px !important;
+            width: 92px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
         }
         .actions {
             justify-content: center;
@@ -124,9 +150,9 @@
             border: 1px solid rgba(127,127,127,.25);
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0,0,0,.2);
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
+            max-width: 1100px;
+            width: 94%;
+            max-height: 88vh;
             display: flex;
             flex-direction: column;
         }
@@ -159,26 +185,54 @@
             padding: 20px;
             overflow-y: auto;
             flex: 1;
+            min-height: 0;
+            display: flex;
         }
         .columns-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            gap: 20px;
+            flex: 1 1 auto;
+            min-height: 0;
         }
         .column {
             display: flex;
             flex-direction: column;
             gap: 8px;
+            flex: 1 1 0;
+            min-width: 0;
+            min-height: 0;
         }
         .column-content {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            min-height: 200px;
+            flex: 1 1 auto;
+            min-height: 220px;
             padding: 8px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
         }
+        /* Strefa "Ukryte kolumny" - teraz obok widocznych kolumn */
         .column-hidden .column-content {
-            min-height: 300px;
+            padding: 12px;
+            border: 2px dashed color-mix(in oklab, CanvasText 28%, transparent);
+            border-radius: 10px;
+            background: color-mix(in oklab, CanvasText 4%, transparent);
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .column-hidden .column-content:empty::before {
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            min-height: 0;
+            flex: 1;
+        }
+        .column-title .hint {
+            font-weight: 400;
+            font-size: 12px;
+            opacity: 0.65;
         }
         .column-content:empty::before {
             content: 'Przeciągnij kolumny tutaj';
@@ -223,20 +277,16 @@
             opacity: 0.5;
             transform: scale(0.95);
         }
-        .column.drag-over {
-            background: color-mix(in oklab, #60a5fa 5%, Canvas);
-            border-radius: 8px;
-            padding: 8px;
-            min-height: 200px;
-        }
-        .column.drag-over.column-hidden {
-            min-height: 300px;
-        }
+        /* Podświetlenie strefy upuszczania - bez przesuwania układu (outline zamiast border/padding) */
         .column.drag-over .column-content {
-            min-height: 180px;
+            outline: 2px dashed #60a5fa;
+            outline-offset: -2px;
+            border-radius: 10px;
+            background: color-mix(in oklab, #60a5fa 12%, Canvas);
         }
-        .column.drag-over.column-hidden .column-content {
-            min-height: 280px;
+        .column-hidden.drag-over .column-content {
+            border-color: #60a5fa;
+            outline: none;
         }
         .modal-footer {
             padding: 16px 20px;
@@ -265,6 +315,34 @@
         let headerOrder = [];
         let hiddenHeaders = new Set();
         let columnWidths = {};
+
+        // Domyslna szerokosc kolumny (w pikselach). Dzieki niej kolumny sa czytelne,
+        // a tabela jest szersza niz okno - dlatego na dole pojawia sie poziomy suwak.
+        const DEFAULT_COLUMN_WIDTH = 110;
+        // Skalowanie rozmiarow tabeli: 1 = 100%, 0.8 = kolumny/wiersze o ~20% mniejsze.
+        // Jedno miejsce do regulacji - zmiana tutaj przelicza wszystkie kolumny.
+        const UI_SCALE = 0.8;
+        // Minimalna szerokosc kolumny "Akcje" oraz zwyklej kolumny (przed skalowaniem).
+        // 115 * UI_SCALE = 92px - tyle potrzeba na 3 przyciski ikon (archiwum/druk/usun).
+        const ACTIONS_MIN_WIDTH = 115;
+        const MIN_COLUMN_WIDTH = 30;
+
+        // Zwraca szerokosc kolumny w px PO skalowaniu (UI_SCALE).
+        // Zapisane szerokosci traktujemy jako "baze" i skalujemy je tylko przy rysowaniu,
+        // dzieki czemu nic sie nie kumuluje przy kolejnych zapisach.
+        function displayColumnWidth(header) {
+            let base;
+            if (header === 'Akcje') {
+                base = columnWidths[header];
+                if (!base || base < ACTIONS_MIN_WIDTH) {
+                    base = ACTIONS_MIN_WIDTH;
+                    columnWidths[header] = base;
+                }
+            } else {
+                base = columnWidths[header] || DEFAULT_COLUMN_WIDTH;
+            }
+            return Math.max(MIN_COLUMN_WIDTH, Math.round(base * UI_SCALE));
+        }
         
         // Default column order for new users (readable, logical order)
         const DEFAULT_HEADER_ORDER = [
@@ -282,7 +360,9 @@
             'Całkowita szerokość rękawa',
             'Zakładka boczna',
             'Grubość',
-            'Rodzaj wyrobu'
+            'Rodzaj wyrobu',
+            'Cena',
+            'Zrywka'
         ];
         
         // Infinite scroll state
@@ -504,13 +584,7 @@
                     
                     // Special handling for "Akcje" column - always ensure minimum width
                     if (h === 'Akcje') {
-                        const minWidth = 100; // Minimum width for actions column
-                        const savedWidth = columnWidths[h];
-                        const width = savedWidth && savedWidth >= minWidth ? savedWidth : minWidth;
-                        // Update saved width if it was too small
-                        if (!savedWidth || savedWidth < minWidth) {
-                            columnWidths[h] = minWidth;
-                        }
+                        const width = displayColumnWidth(h);
                         th.className = 'sticky-right';
                         th.style.width = width + 'px';
                         th.style.minWidth = width + 'px';
@@ -519,7 +593,7 @@
                         // Add header content with "Akcje" text first, then gear icon
                         const headerActions = document.createElement('span');
                         headerActions.className = 'actions';
-                        headerActions.style.cssText = 'display: inline-flex; gap: 8px; align-items: center;';
+                        headerActions.style.cssText = 'display: flex; gap: 6px; align-items: center;';
                         
                         // Column title text first
                         const titleText = document.createElement('span');
@@ -542,13 +616,11 @@
                         th.appendChild(headerActions);
                     } else {
                         th.textContent = h;
-                        // Apply saved width if available for other columns
-                        const savedWidth = columnWidths[h];
-                        if (savedWidth) {
-                            th.style.width = savedWidth + 'px';
-                            th.style.minWidth = savedWidth + 'px';
-                            th.style.maxWidth = savedWidth + 'px';
-                        }
+                        // Szerokosc zapisana przez uzytkownika albo domyslna, przeskalowana (UI_SCALE)
+                        const width = displayColumnWidth(h);
+                        th.style.width = width + 'px';
+                        th.style.minWidth = width + 'px';
+                        th.style.maxWidth = width + 'px';
                     }
                     
                     // Add resize handle for all columns (including "Akcje")
@@ -562,6 +634,13 @@
                     tableHeadRow.appendChild(th);
                 });
                 
+                // Tabela ma byc szersza niz okno - wtedy na dole dziala poziomy suwak
+                const tableEl = tableHeadRow.closest('table');
+                if (tableEl) {
+                    const totalWidth = headersToShow.reduce((sum, h) => sum + displayColumnWidth(h), 0);
+                    tableEl.style.minWidth = totalWidth + 'px';
+                }
+
                 return headersToShow;
             } catch (e) {
                 tableHeadRow.innerHTML = '';
@@ -593,8 +672,8 @@
                 if (!isResizing) return;
                 
                 const diff = e.pageX - startX;
-                // Enforce minimum width: 100px for "Akcje", 30px for others
-                const minWidth = headerName === 'Akcje' ? 100 : 30;
+                // Minimalna szerokosc (w px ekranu, czyli po skalowaniu): "Akcje" vs pozostale
+                const minWidth = headerName === 'Akcje' ? Math.round(ACTIONS_MIN_WIDTH * UI_SCALE) : MIN_COLUMN_WIDTH;
                 const newWidth = Math.max(minWidth, startWidth + diff);
                 th.style.width = newWidth + 'px';
                 th.style.minWidth = newWidth + 'px';
@@ -620,10 +699,10 @@
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
                     
-                    // Save width, but ensure minimum for "Akcje"
+                    // Zapisujemy szerokosc jako "baze" (bez skalowania), z minimum dla "Akcje"
                     const finalWidth = th.offsetWidth;
-                    const minWidth = headerName === 'Akcje' ? 100 : 0;
-                    columnWidths[headerName] = Math.max(minWidth, finalWidth);
+                    const minWidth = headerName === 'Akcje' ? ACTIONS_MIN_WIDTH : 0;
+                    columnWidths[headerName] = Math.max(minWidth, Math.round(finalWidth / UI_SCALE));
                     await saveColumnVisibility();
                 }
             });
@@ -640,23 +719,16 @@
                 
                 // Special handling for "Akcje" column - always ensure minimum width
                 if (h === 'Akcje') {
-                    const minWidth = 100;
-                    const savedWidth = columnWidths[h];
-                    const width = savedWidth && savedWidth >= minWidth ? savedWidth : minWidth;
-                    if (!savedWidth || savedWidth < minWidth) {
-                        columnWidths[h] = minWidth;
-                    }
+                    const width = displayColumnWidth(h);
                     td.className = 'sticky-right';
                     td.style.width = width + 'px';
                     td.style.minWidth = width + 'px';
                     td.style.maxWidth = width + 'px';
                 } else {
-                    const savedWidth = columnWidths[h];
-                    if (savedWidth) {
-                        td.style.width = savedWidth + 'px';
-                        td.style.minWidth = savedWidth + 'px';
-                        td.style.maxWidth = savedWidth + 'px';
-                    }
+                    const width = displayColumnWidth(h);
+                    td.style.width = width + 'px';
+                    td.style.minWidth = width + 'px';
+                    td.style.maxWidth = width + 'px';
                 }
                 
                 // Special handling for "Akcje" column content
@@ -703,6 +775,41 @@
                         }
                     });
                     wrap.appendChild(btnPrint);
+
+                    // Delete button - trwale usuniecie wiersza wraz z danymi; tylko z uprawnieniem
+                    if (userPermissions && userPermissions.deleteOrders) {
+                        const btnDelete = document.createElement('button');
+                        btnDelete.type = 'button';
+                        btnDelete.className = 'btn-icon';
+                        btnDelete.title = 'Usuń trwale';
+                        btnDelete.innerHTML = '<svg class="icon icon-trash" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+                        btnDelete.addEventListener('click', async () => {
+                            if (!rowId) return;
+                            const numer = (doc['Numer zlecenia'] || '').toString().trim();
+                            const opis = numer ? `zamówienie „${numer}”` : 'to zamówienie';
+                            const potwierdzone = window.confirm(
+                                `Czy na pewno trwale usunąć ${opis}?\n\n` +
+                                'Zamówienie i wszystkie powiązane dane (m.in. przypisania do maszyn) ' +
+                                'zostaną bezpowrotnie skasowane.\n\n' +
+                                'Tej operacji nie można cofnąć.'
+                            );
+                            if (!potwierdzone) return;
+                            try {
+                                showToast('Usuwanie...');
+                                const res = await fetch(`/api/zamowienia/${encodeURIComponent(rowId)}`, { method: 'DELETE' });
+                                const data = await res.json().catch(() => ({}));
+                                if (!res.ok || !data || !data.ok) {
+                                    throw new Error((data && data.error) || ('HTTP ' + res.status));
+                                }
+                                showToast('Usunięto zamówienie.');
+                                tr.remove();
+                            } catch (e) {
+                                console.error('Delete error:', e);
+                                showToast('Błąd usuwania zamówienia.');
+                            }
+                        });
+                        wrap.appendChild(btnDelete);
+                    }
                     td.appendChild(wrap);
                 } else if (h === 'Numer zlecenia' && rowId) {
                     const a = document.createElement('a');
@@ -807,6 +914,31 @@
             return tr;
         }
 
+        // Wiersze "ogonka" tabeli (wskaźnik ładowania, komunikat, przycisk nowego zamówienia) muszą zostać NA SAMYM KOŃCU
+        function getTableTail(tbody) {
+            return tbody.querySelector('#scroll-sentinel, #loading-indicator, .no-more-data, .new-order-row');
+        }
+
+        // Dodaje wiersz z danymi PRZED ogonkiem tabeli, żeby "Nowe zamówienie" nie wpadło w środek listy
+        function appendToTable(tbody, tr) {
+            const tail = getTableTail(tbody);
+            if (tail) tbody.insertBefore(tr, tail);
+            else tbody.appendChild(tr);
+        }
+
+        // Komórka rozciągnięta na całą tabelę, ale z treścią przyklejoną do lewej krawędzi widoku
+        function makeTailCell(headers, className, content) {
+            const td = document.createElement('td');
+            td.colSpan = Math.max(1, headers.length);
+            td.className = 'tail-cell ' + className;
+            const inner = document.createElement('div');
+            inner.className = 'tail-sticky';
+            if (typeof content === 'string') inner.textContent = content;
+            else if (content) inner.appendChild(content);
+            td.appendChild(inner);
+            return td;
+        }
+
         async function loadRows(headers, append = false) {
             if (isLoading || (!hasMore && append)) return;
             
@@ -828,12 +960,8 @@
             if (append) {
                 const loadingRow = document.createElement('tr');
                 loadingRow.id = 'loading-indicator';
-                const loadingCell = document.createElement('td');
-                loadingCell.colSpan = headers.length;
-                loadingCell.className = 'loading-more';
-                loadingCell.textContent = 'Ładowanie...';
-                loadingRow.appendChild(loadingCell);
-                tbody.appendChild(loadingRow);
+                loadingRow.appendChild(makeTailCell(headers, 'loading-more', 'Ładowanie...'));
+                appendToTable(tbody, loadingRow);
             }
             
             try {
@@ -850,17 +978,14 @@
                 
                 if (items.length === 0 && !append) {
                     const tr = document.createElement('tr');
-                    const td = document.createElement('td');
-                    td.colSpan = Math.max(1, headers.length);
-                    td.textContent = 'Brak danych w kolekcji.';
-                    tr.appendChild(td);
-                    tbody.appendChild(tr);
+                    tr.appendChild(makeTailCell(headers, 'table-message', 'Brak danych w kolekcji.'));
+                    appendToTable(tbody, tr);
                     hasMore = false;
                 } else if (items.length > 0) {
                     items.forEach(doc => {
                         const rowId = (doc._id && String(doc._id)) || '';
                         const tr = createRow(doc, headers, rowId);
-                        tbody.appendChild(tr);
+                        appendToTable(tbody, tr);
                     });
                     
                     // Check if there are more pages
@@ -881,11 +1006,7 @@
                     } else {
                         // Show "no more data" message
                         const noMoreRow = document.createElement('tr');
-                        const noMoreCell = document.createElement('td');
-                        noMoreCell.colSpan = headers.length;
-                        noMoreCell.className = 'no-more-data';
-                        noMoreCell.textContent = 'Wszystkie dane zostały załadowane';
-                        noMoreRow.appendChild(noMoreCell);
+                        noMoreRow.appendChild(makeTailCell(headers, 'no-more-data', 'Wszystkie dane zostały załadowane'));
                         // Insert before "New Order" row if it exists
                         const newOrderRow = tbody.querySelector('.new-order-row');
                         if (newOrderRow) {
@@ -909,11 +1030,8 @@
                 }
                 if (!append) {
                     const tr = document.createElement('tr');
-                    const td = document.createElement('td');
-                    td.colSpan = Math.max(1, headers.length);
-                    td.textContent = 'Nie udało się wczytać danych.';
-                    tr.appendChild(td);
-                    tbody.appendChild(tr);
+                    tr.appendChild(makeTailCell(headers, 'table-message', 'Nie udało się wczytać danych.'));
+                    appendToTable(tbody, tr);
                 }
                 hasMore = false;
             } finally {
@@ -926,16 +1044,12 @@
                 if (!existingNewOrderRow) {
                     const newOrderRow = document.createElement('tr');
                     newOrderRow.className = 'new-order-row';
-                    const newOrderCell = document.createElement('td');
-                    newOrderCell.colSpan = headers.length;
-                    newOrderCell.style.cssText = 'text-align: center; padding: 16px; background: color-mix(in oklab, Canvas 98%, transparent); border-top: 2px solid rgba(127,127,127,.3);';
                     const newOrderBtn = document.createElement('a');
                     newOrderBtn.href = '/nowe-zamowienie';
                     newOrderBtn.className = 'btn';
                     newOrderBtn.style.cssText = 'text-decoration: none; padding: 10px 20px; font-size: 14px; background: #60a5fa; color: white; border: 1px solid #60a5fa; border-radius: 8px; display: inline-block; width: auto; min-width: auto; max-width: none;';
                     newOrderBtn.textContent = '+ Nowe zamówienie';
-                    newOrderCell.appendChild(newOrderBtn);
-                    newOrderRow.appendChild(newOrderCell);
+                    newOrderRow.appendChild(makeTailCell(headers, 'new-order-cell', newOrderBtn));
                     tbody.appendChild(newOrderRow);
                 }
             }
@@ -1281,6 +1395,54 @@
             loadHeaders().then(headers => loadRows(headers));
         }
 
+        // --- Tooltip: pokaz pelna zawartosc komorki, gdy tekst jest zwiniety (przycięty) ---
+        function isClipped(el) {
+            return !!el && el.scrollWidth > el.clientWidth + 1;
+        }
+
+        // Ustawia/usuwa natywny tooltip (title) tylko dla przyciętej zawartości
+        function syncAutoTitle(el, text) {
+            if (!el) return;
+            if (isClipped(el) && text) {
+                if (el.title !== text) el.title = text;
+                el.dataset.autoTitle = '1';
+            } else if (el.dataset.autoTitle === '1') {
+                // Usuwamy tylko tooltip ustawiony automatycznie (nie ruszamy własnych tytułów)
+                el.removeAttribute('title');
+                delete el.dataset.autoTitle;
+            }
+        }
+
+        function handleCellHover(e) {
+            const cell = e.target.closest && e.target.closest('td, th');
+            if (!cell || !cell.closest('table')) return;
+            if (cell.classList.contains('sticky-right')) return; // kolumna Akcje (przyciski)
+
+            // Komórka z polem edycyjnym -> pokaz pelna wartosc pola
+            const input = cell.querySelector('input[type="text"]');
+            if (input) { syncAutoTitle(input, input.value); return; }
+
+            // Komórka z listą wyboru -> pokaz pelna nazwę wybranej opcji
+            const select = cell.querySelector('select');
+            if (select) {
+                const opt = select.selectedOptions && select.selectedOptions[0];
+                syncAutoTitle(select, opt ? opt.textContent : '');
+                return;
+            }
+
+            // Komórka z linkiem -> uzupelnij tylko jeśli link nie ma wlasnego tytulu
+            const anchor = cell.querySelector('a');
+            if (anchor) {
+                if (!anchor.title && isClipped(anchor)) anchor.title = anchor.textContent.trim();
+                return;
+            }
+
+            // Zwykla komorka tekstowa (albo nagłówek kolumny)
+            syncAutoTitle(cell, cell.textContent.trim());
+        }
+
+        document.addEventListener('mouseover', handleCellHover, { passive: true });
+
         document.addEventListener('DOMContentLoaded', async () => {
             // Load user permissions first
             await loadUserPermissions();
@@ -1357,7 +1519,7 @@
                         <div id="visible-columns" class="column-content"></div>
                     </div>
                     <div class="column column-hidden">
-                        <div class="column-title">Ukryte kolumny</div>
+                        <div class="column-title">Ukryte kolumny <span class="hint">— przeciągnij tutaj, aby ukryć</span></div>
                         <div id="hidden-columns" class="column-content"></div>
                     </div>
                 </div>

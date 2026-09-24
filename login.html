@@ -4,10 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Logowanie</title>
+    <!-- Motyw (ciemny/jasny) ustawiany od razu, zeby nie bylo migniecia zlego motywu -->
+    <script>
+        (function () {
+            var theme = 'dark';
+            try {
+                if (localStorage.getItem('theme') === 'light') theme = 'light';
+            } catch (e) {}
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <style>
-        :root { color-scheme: light dark; }
-        html[data-theme="light"] { color-scheme: light; }
+        :root { color-scheme: dark; }
         html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="light"] { color-scheme: light; }
         * {
             box-sizing: border-box;
             margin: 0;
@@ -117,8 +127,14 @@
         }
         .switch input {
             opacity: 0;
-            width: 0;
-            height: 0;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin: 0;
+            z-index: 2;
+            cursor: pointer;
         }
         .slider {
             position: absolute;
@@ -170,7 +186,7 @@
         </form>
         
         <div class="toggle">
-            Jasny motyw
+            <span id="theme-label">Ciemny motyw</span>
             <span class="switch">
                 <input id="light-toggle" type="checkbox" />
                 <span class="slider"></span>
@@ -182,25 +198,33 @@
         // Theme toggle
         document.addEventListener('DOMContentLoaded', () => {
             const toggle = document.getElementById('light-toggle');
-            try {
-                const saved = localStorage.getItem('theme');
-                if (saved === 'light') {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                    if (toggle) toggle.checked = true;
-                }
-            } catch {}
+            const label = document.getElementById('theme-label');
+
+            function applyTheme(theme) {
+                const isLight = theme === 'light';
+                document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+                if (toggle) toggle.checked = isLight;
+                if (label) label.textContent = isLight ? 'Jasny motyw' : 'Ciemny motyw';
+                try { localStorage.setItem('theme', isLight ? 'light' : 'dark'); } catch (e) {}
+            }
+
+            let savedTheme = 'dark';
+            try { if (localStorage.getItem('theme') === 'light') savedTheme = 'light'; } catch (e) {}
+            applyTheme(savedTheme);
 
             if (toggle) {
-                toggle.addEventListener('change', () => {
-                    const isLight = toggle.checked;
-                    if (isLight) {
-                        document.documentElement.setAttribute('data-theme', 'light');
-                        try { localStorage.setItem('theme', 'light'); } catch {}
-                    } else {
-                        document.documentElement.removeAttribute('data-theme');
-                        try { localStorage.removeItem('theme'); } catch {}
-                    }
-                });
+                toggle.addEventListener('change', () => applyTheme(toggle.checked ? 'light' : 'dark'));
+
+                // klik w caly przelacznik (poza samym checkboxem) tez zmienia motyw
+                const toggleBox = toggle.closest('.toggle');
+                if (toggleBox) {
+                    toggleBox.addEventListener('click', (e) => {
+                        if (e.target === toggle) return; // checkbox obsluguje zdarzenie "change"
+                        e.preventDefault();
+                        toggle.checked = !toggle.checked;
+                        applyTheme(toggle.checked ? 'light' : 'dark');
+                    });
+                }
             }
 
             // Form submission

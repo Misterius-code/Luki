@@ -10,9 +10,12 @@
     "check-db": "node check-db-status.js",
     "clean-db": "node clean-database.js",
     "import-csv": "node import-csv.js",
-    "migrate-railway": "node migrate-to-railway.js"
+    "migrate-railway": "node migrate-to-railway.js",
+    "backup": "node backup.js",
+    "restore": "node restore.js"
   },
   "dependencies": {
+    "bson": "^6.10.4",
     "dotenv": "^17.2.3",
     "mongodb": "^6.3.0"
   }

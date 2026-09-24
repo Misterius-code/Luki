@@ -4,10 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel Administracyjny</title>
+    <!-- Motyw (ciemny/jasny) ustawiany od razu, zeby nie bylo migniecia zlego motywu -->
+    <script>
+        (function () {
+            var theme = 'dark';
+            try {
+                if (localStorage.getItem('theme') === 'light') theme = 'light';
+            } catch (e) {}
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <style>
-        :root { color-scheme: light dark; }
-        html[data-theme="light"] { color-scheme: light; }
+        :root { color-scheme: dark; }
         html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="light"] { color-scheme: light; }
         body {
             margin: 0;
             font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
@@ -800,27 +810,24 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Theme toggle
+            // Theme toggle: ciemny (domyslny) albo jasny
             const toggle = document.getElementById('light-toggle');
-            try {
-                const saved = localStorage.getItem('theme');
-                if (saved === 'light') {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                    if (toggle) toggle.checked = true;
-                }
-            } catch {}
+            const label = document.getElementById('theme-label');
+
+            function applyTheme(theme) {
+                const isLight = theme === 'light';
+                document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+                if (toggle) toggle.checked = isLight;
+                if (label) label.textContent = isLight ? 'Jasny motyw' : 'Ciemny motyw';
+                try { localStorage.setItem('theme', isLight ? 'light' : 'dark'); } catch (e) {}
+            }
+
+            let savedTheme = 'dark';
+            try { if (localStorage.getItem('theme') === 'light') savedTheme = 'light'; } catch (e) {}
+            applyTheme(savedTheme);
 
             if (toggle) {
-                toggle.addEventListener('change', () => {
-                    const isLight = toggle.checked;
-                    if (isLight) {
-                        document.documentElement.setAttribute('data-theme', 'light');
-                        try { localStorage.setItem('theme', 'light'); } catch {}
-                    } else {
-                        document.documentElement.removeAttribute('data-theme');
-                        try { localStorage.removeItem('theme'); } catch {}
-                    }
-                });
+                toggle.addEventListener('change', () => applyTheme(toggle.checked ? 'light' : 'dark'));
             }
 
             // Logout handler

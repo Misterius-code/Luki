@@ -4,13 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Karta wyrobu</title>
+  <!-- Motyw (ciemny/jasny) ustawiany od razu, zeby nie bylo migniecia zlego motywu -->
+  <script>
+    (function () {
+      var theme = 'dark';
+      try {
+        if (localStorage.getItem('theme') === 'light') theme = 'light';
+      } catch (e) {}
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { color-scheme: light dark; }
-    html[data-theme="light"] { color-scheme: light; }
+    :root { color-scheme: dark; }
     html[data-theme="dark"] { color-scheme: dark; }
+    html[data-theme="light"] { color-scheme: light; }
 
     * { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -91,6 +101,9 @@
     .pair-grid td.value { width: 25%; }
     .pair-grid td.spacer { border: none; }
 
+    /* Komórka z nadrukiem (sekcja DRUKARNIA) — kilka linijek miejsca, żeby nie było zbite */
+    .data-grid td.nadruk { height: 68px; }
+
     /* Inputs inside table cells */
     .cell-input {
       width: 100%;
@@ -107,7 +120,7 @@
     }
     .cell-textarea {
       width: 100%;
-      min-height: 88px;
+      min-height: 76px;
       border: none;
       background: transparent !important;
       font: inherit;
@@ -278,12 +291,156 @@
     .toast.error {
       background: #ef4444; /* red */
     }
+
+    /* ================== WYDRUK A4 ==================
+       Karta ma się zmieścić na JEDNEJ kartce A4 z obu stron:
+       przód (.sheet-front) = dane zlecenia, parametry i przebieg produkcji na wytłaczarce,
+       tył   (.sheet-back)  = przebieg produkcji na drukarni i automatach + magazynier/wystawiający. */
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+
+    @media print {
+      html, body {
+        height: auto !important;
+        padding: 0 !important;
+        font-size: 9pt !important;
+      }
+
+      /* Elementy interfejsu (pasek górny, przyciski, toasty) nie są częścią karty */
+      #header-container,
+      .header-bar,
+      .print-button-fixed,
+      .toast {
+        display: none !important;
+      }
+
+      .container {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* Tył karty zawsze od nowej strony */
+      .sheet-back {
+        break-before: page !important;
+        page-break-before: always !important;
+      }
+
+      /* Kompaktowo, ale czytelnie */
+      header { margin: 0 0 4px 0 !important; }
+      .title {
+        font-size: 13pt !important;
+        padding: 2px 8px 3px 8px !important;
+      }
+
+      .data-grid,
+      .pair-grid {
+        margin: 0 0 3px 0 !important;
+      }
+
+      /* tylko szerokie tabele z danymi: kolumny dopasowane do treści,
+         żeby nagłówki nie łamały się w środku wyrazów */
+      .data-grid {
+        table-layout: auto !important;
+      }
+
+      .data-grid th,
+      .data-grid td,
+      .pair-grid td {
+        padding: 3px 4px !important;
+        font-size: 8pt !important;
+        line-height: 1.2 !important;
+        border: 1px solid #000 !important;
+        background: #fff !important;
+        color: #000 !important;
+      }
+
+      .section-label {
+        padding: 2px 4px !important;
+        margin: 4px 0 2px 0 !important;
+        font-size: 8.5pt !important;
+        border: 1px solid #000 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      .cell-input,
+      .cell-select {
+        padding: 0 !important;
+        font-size: inherit !important;
+        border: none !important;
+        background: #fff !important;
+        color: #000 !important;
+      }
+
+      /* Pola zablokowane (np. Zleceniodawca / Nr. Zlecenia) w trybie ciemnym mają
+         ciemne tło — na wydruku musi być białe, inaczej tekst jest nieczytelny */
+      .cell-input:disabled,
+      .cell-input[readonly],
+      .cell-select:disabled,
+      .cell-textarea:disabled {
+        background: #fff !important;
+        color: #000 !important;
+        -webkit-text-fill-color: #000 !important;
+        opacity: 1 !important;
+      }
+
+      .cell-textarea {
+        padding: 2px 0 !important;
+        border: none !important;
+        background: #fff !important;
+        color: #000 !important;
+        resize: none !important;
+        height: 16mm !important;
+        min-height: 0 !important;
+      }
+
+      /* Na papierze drukujemy CAŁĄ siatkę — jest gdzie wpisać dane ręcznie */
+      .data-grid tr.empty-row {
+        display: table-row !important;
+      }
+
+      /* komórka UWAGI ma w HTML na sztywno 90px — na wydruku liczy się wysokość pola */
+      .data-grid td {
+        height: auto !important;
+      }
+
+      /* komórka z nadrukiem (sekcja DRUKARNIA) — kilka linijek miejsca */
+      .data-grid td.nadruk {
+        height: 18mm !important;
+      }
+
+      /* Tabele produkcyjne na tyle karty: ciaśniejsze wiersze, żeby całość
+         zmieściła się na jednej stronie nawet przy dłuższych wpisach */
+      .sheet-back .data-grid th,
+      .sheet-back .data-grid td {
+        padding: 2px 3px !important;
+        line-height: 1.15 !important;
+      }
+
+      /* Nie rozdzielaj wierszy ani małych tabel między strony */
+      table {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
+      tr,
+      .pair-grid {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      .muted { color: #555 !important; }
+    }
   </style>
 </head>
 <body>
   <div id="header-container" data-title="Karta wyrobu" data-crumbs='/ <a href="/">Zamówienia</a> / Karta Wyrobu'></div>
   <script src="/header.js"></script>
   <div class="container">
+   <!-- ===== PRZÓD KARTY (strona 1): dane zlecenia i parametry ===== -->
+   <div class="sheet sheet-front">
     <header>
       <div class="title">KARTA WYROBU</div>
     </header>
@@ -314,16 +471,12 @@
     <div class="section-label">Wytłaczarka</div>
     <table class="pair-grid">
       <tr>
-        <td class="label">NR2</td>
-        <td class="value"><input class="cell-input" type="text" aria-label="NR2"></td>
-        <td class="label">NR1</td>
-        <td class="value"><input class="cell-input" type="text" aria-label="NR1"></td>
-        <td class="label">Barwnik</td>
-        <td class="value"><input class="cell-input" type="text" aria-label="Barwnik"></td>
-        <td class="label">Jonizacja</td>
-        <td class="value"><input class="cell-input" type="text" aria-label="Jonizacja"></td>
-        <td class="label">Tworzywo</td>
-        <td class="value" colspan="3"><input class="cell-input" type="text" aria-label="Tworzywo"></td>
+        <td class="label" style="width: 9%">Barwnik</td>
+        <td class="value" style="width: 15%"><input class="cell-input" type="text" aria-label="Barwnik"></td>
+        <td class="label" style="width: 11%">Jonizacja</td>
+        <td class="value" style="width: 12%"><input class="cell-input" type="text" aria-label="Jonizacja"></td>
+        <td class="label" style="width: 11%">Tworzywo</td>
+        <td class="value" style="width: 42%"><input class="cell-input" type="text" aria-label="Tworzywo"></td>
       </tr>
     </table>
 
@@ -355,44 +508,12 @@
       </tr>
     </table>
 
-    <div class="section-label">Przebieg Produkcji na DRUKARNI</div>
+    <div class="section-label">Drukarnia</div>
     <table class="data-grid">
       <tr>
-        <th colspan="12" style="text-align:left; font-weight:600; padding:8px 10px;">
-          <input class="cell-input" type="text" placeholder="Nazwa drukarni" aria-label="Nazwa drukarni" style="font-weight:600;">
-        </th>
-      </tr>
-      <tr>
-        <th colspan="2">Nazwisko drukarza</th>
-        <th colspan="2">Data/zmiana</th>
-        <th colspan="2">Nr. Wałka (etykieta)</th>
-        <th colspan="2">Ilość zadrukowana mb</th>
-        <th colspan="2">Odpady ilość kg</th>
-        <th colspan="2">UWAGI</th>
-      </tr>
-      <tr>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
-      </tr>
-      <tr>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
-      </tr>
-      <tr>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
-        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
+        <td class="nadruk" style="text-align:center">
+          <input class="cell-input" type="text" aria-label="DRUKARNIA" style="text-align:center; font-weight:600;">
+        </td>
       </tr>
     </table>
 
@@ -403,7 +524,7 @@
         <th rowspan="2">Wysokość</th>
         <th rowspan="2">Zakładka denna</th>
         <th rowspan="2">Zrywka/ Klapka</th>
-        <th colspan="3" rowspan="2">Zgrzew</th>
+        <th colspan="3" rowspan="2" style="width: 16%">Zgrzew</th>
         <th colspan="2" rowspan="2">Parametry dodatkowe</th>
         <th colspan="2">Zrywka</th>
         <th rowspan="2">Pakowanie</th>
@@ -643,6 +764,46 @@
       </tr>
     </table>
 
+   </div><!-- /sheet-front -->
+
+   <!-- ===== TYŁ KARTY (strona 2): pozostałe przebiegi produkcji ===== -->
+   <div class="sheet sheet-back">
+    <div class="section-label">Przebieg Produkcji na DRUKARNI</div>
+    <table class="data-grid">
+      <tr>
+        <th colspan="2">Nazwisko drukarza</th>
+        <th colspan="2">Data/zmiana</th>
+        <th colspan="2">Nr. Wałka (etykieta)</th>
+        <th colspan="2">Ilość zadrukowana mb</th>
+        <th colspan="2">Odpady ilość kg</th>
+        <th colspan="2">UWAGI</th>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nazwisko drukarza"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Data/zmiana"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Nr. Wałka (etykieta)"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Ilość zadrukowana mb"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="Odpady ilość kg"></td>
+        <td colspan="2"><input class="cell-input" type="text" aria-label="UWAGI (drukarnia)"></td>
+      </tr>
+    </table>
+
     <div class="section-label">Przebieg produkcji na AUTOMATACH</div>
     <table class="data-grid">
       <tr>
@@ -788,6 +949,7 @@
         <td colspan="9"><input class="cell-input" type="text" aria-label="Faktura/WZ-tka"></td>
       </tr>
     </table>
+   </div><!-- /sheet-back -->
 
   </div>
 
@@ -1117,8 +1279,6 @@
         'Nazwa wyrobu gotowego': 'Nazwa wyrobu gotowego',
         'Wymiar wyrobu gotowego': 'Wymiar wyrobu gotowego',
         'Ilość kg/szt/mb': 'Ilość kg/szt/mb',
-        'Wytłaczarka NR2': 'NR2',
-        'Wytłaczarka NR1': 'NR1',
         'Barwnik': 'Barwnik',
         'Jonizacja': 'Jonizacja',
         'Tworzywo': 'Tworzywo',
@@ -1128,6 +1288,7 @@
         'Rodzaj wyrobu': 'Rodzaj wyrobu',
         'Nawój na wałek (jaki/ile)': 'Nawój na wałek',
         'UWAGI': 'Uwagi',
+        'DRUKARNIA': 'DRUKARNIA',
         'Szerokość': 'Szerokość',
         'Wysokość': 'Wysokość',
         'Zakładka denna': 'Zakładka denna',

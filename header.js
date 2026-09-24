@@ -152,44 +152,37 @@
             setInterval(updateNowDate, 60000);
         }
 
-        // Theme initialization
+        // Theme initialization: ciemny (domyslny) albo jasny
         const toggle = document.getElementById('light-toggle');
-        if (toggle) {
-            // Initialize theme from localStorage
-            try {
-                const saved = localStorage.getItem('theme');
-                if (saved === 'light') {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                    toggle.checked = true;
-                } else {
-                    // Default to dark theme (no data-theme attribute)
-                    document.documentElement.removeAttribute('data-theme');
-                    toggle.checked = false;
-                }
-            } catch (e) {
-                console.error('Error loading theme:', e);
-            }
+        const themeLabel = document.getElementById('theme-label');
 
-            // Theme toggle handler
-            const handleThemeChange = (e) => {
-                if (e) e.stopPropagation(); // Prevent dropdown from closing
-                const isLight = toggle.checked;
-                if (isLight) {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                    try { localStorage.setItem('theme', 'light'); } catch {}
-                } else {
-                    document.documentElement.removeAttribute('data-theme');
-                    try { localStorage.removeItem('theme'); } catch {}
-                }
-            };
+        function applyTheme(theme) {
+            const isLight = theme === 'light';
+            document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+            if (toggle) toggle.checked = isLight;
+            if (themeLabel) themeLabel.textContent = isLight ? 'Jasny motyw' : 'Ciemny motyw';
+            try { localStorage.setItem('theme', isLight ? 'light' : 'dark'); } catch (e) {}
+        }
+
+        const handleThemeChange = (e) => {
+            if (e) e.stopPropagation(); // Prevent dropdown from closing
+            applyTheme(toggle.checked ? 'light' : 'dark');
+        };
+
+        if (toggle) {
+            let savedTheme = 'dark';
+            try { if (localStorage.getItem('theme') === 'light') savedTheme = 'light'; } catch (e) {}
+            applyTheme(savedTheme);
             
             toggle.addEventListener('change', handleThemeChange);
-            toggle.addEventListener('click', handleThemeChange);
+            // nie zamykaj menu profilu przy klikaniu przelacznika
+            toggle.addEventListener('click', (e) => e.stopPropagation());
             
             // Also handle click on the switch container and slider to toggle
             const switchContainer = toggle.closest('.switch');
             if (switchContainer) {
                 switchContainer.addEventListener('click', (e) => {
+                    if (e.target === toggle) return; // sam checkbox obsluguje zdarzenie "change"
                     e.stopPropagation();
                     e.preventDefault();
                     toggle.checked = !toggle.checked;

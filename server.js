@@ -57,6 +57,7 @@ const ROLES = {
 			editOrders: true,
 			createOrders: true,
 			archiveOrders: true,
+			deleteOrders: true,
 			viewPlan: true,
 			editPlan: true,
 			assignToMachines: true,
@@ -190,6 +191,50 @@ function requirePermission(permission) {
 		
 		callback();
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Mapowanie "zbednych" pol formularza na istniejace kolumny.
+// Formularz "nowe zamowienie" zapisywal wlasne klucze (np. "Ilość",
+// "Szerokość Automaty"), przez co tworzyly sie dodatkowe kolumny zamiast
+// uzupelnic istniejace. Ponizsza mapa przenosi takie wartosci do wlasciwych
+// kolumn, a same klucze znikaja.
+// ---------------------------------------------------------------------------
+const FIELD_ALIASES = {
+	'Ilość': 'Ilość kg/szt/mb',
+	'Ilosc': 'Ilość kg/szt/mb',
+	'Nawój wartość': 'Nawój na wałek (jaki/ile)',
+	'Nawój na wałek': 'Nawój na wałek (jaki/ile)',
+	'Pakowanie': 'Pakowanie (szt.paczek/szt.zbiorowych)',
+	'Szerokość Automaty': 'Szerokość',
+	'Wysokość Automaty': 'Wysokość',
+	'UWAGI Wytłaczarka': 'UWAGI',
+	'Perforacja typ': 'Perforacja'
+};
+
+// Klucze pomocnicze - sa czescia innych pol, nigdy nie moga byc kolumna.
+const HELPER_FIELDS = ['Ilość jednostka', 'Nawój jednostka', 'Perforacja wartość', 'Pakowanie inne'];
+
+// Klucze, ktore nie moga byc pokazywane jako kolumny tabeli.
+const NON_COLUMN_FIELDS = [...Object.keys(FIELD_ALIASES), ...HELPER_FIELDS];
+
+// Przenosi wartosci z kluczy-aliasow do docelowych kolumn i usuwa klucze zbedne.
+// Celowa kolumna ma priorytet; dopisujemy tylko nowa, niepowtarzajaca sie wartosc.
+function mergeAliasFields(data) {
+	Object.entries(FIELD_ALIASES).forEach(([alias, target]) => {
+		if (data[alias] !== undefined && data[alias] !== null && String(data[alias]).trim() !== '') {
+			const val = String(data[alias]).trim();
+			const current = data[target] === undefined || data[target] === null ? '' : String(data[target]).trim();
+			if (!current) {
+				data[target] = val;
+			} else if (!current.split(',').map(s => s.trim()).includes(val)) {
+				data[target] = current + ', ' + val;
+			}
+		}
+		delete data[alias];
+	});
+	HELPER_FIELDS.forEach(field => { delete data[field]; });
+	return data;
 }
 
 // Initialize MongoDB client
@@ -1133,11 +1178,15 @@ const server = http.createServer((req, res) => {
 				let headers = Array.from(headersSet);
 				
 				// Consolidate "Parametry dodatkowe" fields
-				const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+				// UWAGA: "Zrywka" ma wlasna kolumne (sekcja "Zrywka" w nowym zamowieniu) - nie scalac!
+				const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Opaski', 'Druty'];
 				const hasParametryDodatkowe = parametryDodatkoweFields.some(field => headers.includes(field));
 				
 				// Remove individual "Parametry dodatkowe" fields
 				headers = headers.filter(h => !parametryDodatkoweFields.includes(h));
+				
+				// Usun zbedne kolumny: pola pomocnicze oraz klucze przenoszone do innych kolumn
+				headers = headers.filter(h => !NON_COLUMN_FIELDS.includes(h));
 				
 				// Add "Parametry dodatkowe" as a single column if any of those fields exist
 				// or if "Parametry dodatkowe" already exists
@@ -1179,6 +1228,7 @@ const server = http.createServer((req, res) => {
 					'Perforacja',
 					'Pakowanie (szt.paczek/szt.zbiorowych)',
 					'Podliczone?',
+					'Cena',
 					'Wytłaczarka',
 					'Drukarnia',
 					'Automaty'
@@ -1219,9 +1269,11 @@ const server = http.createServer((req, res) => {
 					return;
 				}
 				
+				// Kolejnosc: najstarsze zamowienia na gorze, najnowsze na dole
+				// (_id rosnaco = kolejnosc dodania; nowe zamowienie pojawia sie na samym dole)
 				const items = await db.collection('zamowienia')
 					.find({})
-					.sort({ _id: -1 })
+					.sort({ _id: 1 })
 					.skip(skip)
 					.limit(pageSize)
 					.toArray();
@@ -1230,7 +1282,8 @@ const server = http.createServer((req, res) => {
 				
 				// Helper function to consolidate "Parametry dodatkowe" fields
 				function consolidateParametryDodatkowe(data) {
-					const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+					// "Zrywka" ma wlasna kolumne (sekcja "Zrywka" w formularzu) - nie scalac!
+					const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Opaski', 'Druty'];
 					const parametryValues = [];
 					
 					// Collect values from individual fields
@@ -1257,6 +1310,7 @@ const server = http.createServer((req, res) => {
 				const formattedItems = items.map(item => {
 					const data = { ...item.data };
 					consolidateParametryDodatkowe(data);
+					mergeAliasFields(data);
 					return {
 						...data,
 						_id: item._id.toString()
@@ -1593,8 +1647,16 @@ const server = http.createServer((req, res) => {
 					return;
 				}
 
-				// Merge with existing data
-				const updatedData = { ...doc.data, ...payload };
+				// Merge with existing data.
+				// Wartosc null w payload oznacza USUNIECIE klucza (czyszczenie zbednych pol).
+				const updatedData = { ...doc.data };
+				Object.entries(payload).forEach(([key, value]) => {
+					if (value === null) {
+						delete updatedData[key];
+					} else {
+						updatedData[key] = value;
+					}
+				});
 
 				// Update in database
 				const result = await db.collection('zamowienia').updateOne(
@@ -1633,7 +1695,8 @@ const server = http.createServer((req, res) => {
 				
 				// Consolidate "Parametry dodatkowe" fields
 				const data = { ...doc.data };
-				const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Zrywka', 'Opaski', 'Klipsy', 'Druty'];
+				// "Zrywka" zostaje osobna kolumna (sekcja "Zrywka" w formularzu) - nie scalac!
+				const parametryDodatkoweFields = ['Zimny nóż', 'Taśma klejąca', 'Opaski', 'Druty'];
 				const parametryValues = [];
 				parametryDodatkoweFields.forEach(field => {
 					if (data[field]) {
@@ -1649,6 +1712,8 @@ const server = http.createServer((req, res) => {
 					}
 				}
 				
+				mergeAliasFields(data);
+				
 				const out = { ...data, _id: doc._id.toString() };
 				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify(out));
@@ -1656,6 +1721,50 @@ const server = http.createServer((req, res) => {
 				console.error('get one error:', e);
 				res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ error: 'Błąd pobierania zamówienia' }));
+			}
+		})();
+		return;
+	}
+
+	// Hard delete one doc: permanently removes the order AND all its related data
+	if (parsed.pathname.startsWith('/api/zamowienia/') && req.method === 'DELETE' &&
+	    !parsed.pathname.endsWith('/archive')) {
+		(async () => {
+			const id = parsed.pathname.split('/')[3]; // /api/zamowienia/:id
+			try {
+				const userRole = session.role || await getUserRole(session.username);
+				if (!hasPermission(userRole, 'deleteOrders')) {
+					res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak uprawnień do usuwania zamówień' }));
+					return;
+				}
+
+				if (!ObjectId.isValid(id)) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nieprawidłowy identyfikator' }));
+					return;
+				}
+
+				const oid = new ObjectId(id);
+				const doc = await db.collection('zamowienia').findOne({ _id: oid });
+				if (!doc) {
+					res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Nie znaleziono zamówienia' }));
+					return;
+				}
+
+				// Usuwamy zamówienie oraz powiazane wpisy planu produkcji
+				// (orderId bywa zapisany jako tekst albo jako ObjectId)
+				const planResult = await db.collection('plan_produkcji').deleteMany({ orderId: { $in: [id, oid] } });
+				await db.collection('zamowienia').deleteOne({ _id: oid });
+
+				console.log(`🗑️ Usunieto zamowienie ${id} (powiazane wpisy planu: ${planResult.deletedCount})`);
+				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: true, deletedId: id, deletedPlanEntries: planResult.deletedCount }));
+			} catch (e) {
+				console.error('delete order error:', e);
+				res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: false, error: 'Błąd usuwania zamówienia' }));
 			}
 		})();
 		return;

@@ -1,6 +1,22 @@
 # Environment variables
 .env
 
+# Kopie zapasowe bazy danych (dane firmowe - nie wysylamy do repozytorium)
+backup/
+
+# Plik roboczy tworzony przy imporcie z CSV
+import-gotowy.csv
+
+# Zamowienia wyeksportowane z arkusza (dane firmowe)
+Zamówienia - Lista Ogólna - main*.csv
+Zamówienia - Lista Ogólna - gotowa do importu.csv
+
+# Skroty systemowe (zalezne od komputera)
+*.lnk
+
+# Pliki tymczasowe (narzedzia, podglady)
+_tmp*
+
 # Dependencies
 node_modules/
 

@@ -4,10 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Archiwum</title>
+    <!-- Motyw (ciemny/jasny) ustawiany od razu, zeby nie bylo migniecia zlego motywu -->
+    <script>
+        (function () {
+            var theme = 'dark';
+            try {
+                if (localStorage.getItem('theme') === 'light') theme = 'light';
+            } catch (e) {}
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <style>
-        :root { color-scheme: light dark; }
-        html[data-theme="light"] { color-scheme: light; }
+        :root { color-scheme: dark; }
         html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="light"] { color-scheme: light; }
         body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
         .container { max-width: none; width: 100%; margin: 16px 0; padding: 0 16px; }
         h1 { font-size: 20px; margin: 0; font-weight: 600; }
@@ -29,6 +39,16 @@
         .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: color-mix(in oklab, CanvasText 5%, Canvas); color: CanvasText; border: 1px solid rgba(127,127,127,.3); padding: 10px 14px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .2s ease; font-size: 14px; }
         .toast.show { opacity: 1; }
         .footer { padding: 10px 12px; font-size: 12px; color: color-mix(in oklab, CanvasText 65%, transparent); }
+        /* Pasek szukania w archiwum */
+        .toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(127,127,127,.2); }
+        .toolbar .search-wrap { position: relative; flex: 1 1 auto; max-width: 640px; }
+        .toolbar input[type="search"] { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 9px 34px 9px 12px; border-radius: 8px; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; outline: none; }
+        .toolbar input[type="search"]:focus { border-color: #60a5fa; box-shadow: 0 0 0 2px color-mix(in oklab, #60a5fa 25%, transparent); }
+        .toolbar input[type="search"]::-webkit-search-cancel-button { display: none; }
+        .toolbar .clear-btn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: none; appearance: none; border: 0; background: transparent; color: color-mix(in oklab, CanvasText 60%, transparent); cursor: pointer; font-size: 15px; line-height: 1; padding: 5px 7px; border-radius: 6px; }
+        .toolbar .clear-btn:hover { background: color-mix(in oklab, CanvasText 12%, transparent); color: CanvasText; }
+        .toolbar.has-value .clear-btn { display: block; }
+        .toolbar .search-info { font-size: 12px; color: color-mix(in oklab, CanvasText 65%, transparent); white-space: nowrap; }
         .sticky-right { position: sticky; right: 0; z-index: 3; background: color-mix(in oklab, Canvas 96%, transparent); box-shadow: -6px 0 8px -6px rgba(0,0,0,.15); }
         thead .sticky-right { background: color-mix(in oklab, Canvas 92%, transparent); }
         .actions { display: inline-flex; gap: 8px; }
@@ -47,6 +67,37 @@
             t.classList.add('show');
             clearTimeout(t._timer);
             t._timer = setTimeout(() => t.classList.remove('show'), 1600);
+        }
+        // Szukanie: ignoruje wielkość liter oraz polskie znaki diakrytyczne
+        // ("zubra" = ZUBRA, "glodowski" = Głodowski, "nadruk" = nadruk w każdym polu)
+        function normalizuj(s) {
+            return String(s == null ? '' : s)
+                .replace(/[łŁ]/g, 'l')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        }
+        let wszystkieWiersze = [];
+        function filtruj() {
+            const q = document.getElementById('q');
+            const info = document.getElementById('q-info');
+            const toolbar = document.getElementById('toolbar');
+            if (!q || !info) return;
+            const frazy = normalizuj(q.value).split(/\s+/).filter(Boolean);
+            let widoczne = 0;
+            wszystkieWiersze.forEach(tr => {
+                const ok = frazy.every(f => (tr.dataset.search || '').includes(f));
+                tr.style.display = ok ? '' : 'none';
+                if (ok) widoczne++;
+            });
+            if (toolbar) toolbar.classList.toggle('has-value', q.value.trim() !== '');
+            const n = wszystkieWiersze.length;
+            if (n === 0) { info.textContent = ''; return; }
+            if (frazy.length === 0) {
+                info.textContent = n + ' ' + (n === 1 ? 'zamówienie' : (n < 5 ? 'zamówienia' : 'zamówień')) + ' w archiwum';
+            } else {
+                info.textContent = widoczne === 0 ? 'Brak wyników' : widoczne + ' z ' + n + ' zamówień';
+            }
         }
         function updateHeaderShadow() {
             const table = document.querySelector('table');
@@ -76,7 +127,7 @@
             const tbody = document.getElementById('body-rows');
             tbody.innerHTML = '';
             try {
-                const res = await fetch('/api/archiwum?page=1&pageSize=50');
+                const res = await fetch('/api/archiwum?page=1&pageSize=200');
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 const items = Array.isArray(data.items) ? data.items : [];
@@ -85,6 +136,8 @@
                 }
                 items.forEach(doc => {
                     const tr = document.createElement('tr'); const rowId = (doc._id && String(doc._id)) || ''; tr.dataset.id = rowId;
+                    // Cała zawartość wiersza (wszystkie kolumny) jako tekst do szukania
+                    tr.dataset.search = normalizuj(headers.map(h => doc[h] === undefined || doc[h] === null ? '' : doc[h]).join(' | '));
                     headers.forEach(h => {
                         const td = document.createElement('td'); const v = doc[h]; const valueStr = v === undefined || v === null ? '' : String(v);
                         if (h === 'Numer zlecenia' && rowId) { const a = document.createElement('a'); a.href = `/karta-wyrobu?id=${encodeURIComponent(rowId)}`; a.textContent = valueStr || '(brak)'; a.title = 'Otwórz kartę wyrobu'; td.appendChild(a); } else { const input = document.createElement('input'); input.type = 'text'; input.value = valueStr; input.dataset.field = h; input.disabled = true; td.appendChild(input); }
@@ -93,16 +146,26 @@
                     const tdActions = document.createElement('td'); tdActions.className = 'sticky-right'; const wrap = document.createElement('span'); wrap.className = 'actions';
                     const btnRestore = document.createElement('button'); btnRestore.type = 'button'; btnRestore.className = 'btn-icon'; btnRestore.title = 'Przywróć'; btnRestore.innerHTML = '<svg class="icon icon-restore" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5V2L7 7l5 5V9c3.309 0 6 2.691 6 6a6 6 0 1 1-6-6Z"/></svg>';
                     btnRestore.addEventListener('click', async () => {
-                        if (!rowId) return; try { showToast('Przywracanie...'); const res = await fetch(`/api/archiwum/${encodeURIComponent(rowId)}/restore`, { method: 'POST' }); if (!res.ok) throw new Error('HTTP ' + res.status); const data = await res.json(); if (data && data.ok) { showToast('Przywrócono.'); tr.remove(); } else { showToast('Błąd przywracania.'); } } catch (e) { showToast('Błąd przywracania.'); }
+                        if (!rowId) return; try { showToast('Przywracanie...'); const res = await fetch(`/api/archiwum/${encodeURIComponent(rowId)}/restore`, { method: 'POST' }); if (!res.ok) throw new Error('HTTP ' + res.status); const data = await res.json(); if (data && data.ok) { showToast('Przywrócono.'); tr.remove(); wszystkieWiersze = wszystkieWiersze.filter(x => x !== tr); filtruj(); } else { showToast('Błąd przywracania.'); } } catch (e) { showToast('Błąd przywracania.'); }
                     });
                     const btnPrint = document.createElement('button'); btnPrint.type = 'button'; btnPrint.className = 'btn-icon'; btnPrint.title = 'Drukuj kartę'; btnPrint.innerHTML = '<svg class="icon icon-print" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 7V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3h-2V4H8v3H6Zm-2 2h16a2 2 0 0 1 2 2v5h-4v4H8v-4H4v-5a2 2 0 0 1 2-2Zm4 11h8v-4H8v4Zm10-9h2v2h-2v-2Z"/></svg>';
                     btnPrint.addEventListener('click', () => { if (rowId) { window.open(`/karta-wyrobu?id=${encodeURIComponent(rowId)}&print=1`, '_blank'); } });
                     wrap.appendChild(btnRestore); wrap.appendChild(btnPrint); tdActions.appendChild(wrap); tr.appendChild(tdActions); tbody.appendChild(tr);
                 });
+                wszystkieWiersze = Array.from(tbody.querySelectorAll('tr')).filter(x => x.dataset.id && x.dataset.id !== '');
+                filtruj();
             } catch (e) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(1, headers.length); td.textContent = 'Nie udało się wczytać danych.'; tr.appendChild(td); tbody.appendChild(tr); }
         }
         document.addEventListener('DOMContentLoaded', async () => {
             const headers = await loadHeaders(); await loadRows(headers); updateHeaderShadow();
+            const q = document.getElementById('q');
+            if (q) {
+                let t = null;
+                q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(filtruj, 120); });
+                q.addEventListener('keydown', (e) => { if (e.key === 'Escape') { q.value = ''; filtruj(); } });
+            }
+            const qClear = document.getElementById('q-clear');
+            if (qClear) qClear.addEventListener('click', () => { q.value = ''; filtruj(); q.focus(); });
         });
         document.addEventListener('scroll', updateHeaderShadow, { passive: true });
         window.addEventListener('resize', updateHeaderShadow, { passive: true });
@@ -114,6 +177,13 @@
              data-title="Archiwum">
         </div>
         <div class="card">
+            <div class="toolbar" id="toolbar">
+                <div class="search-wrap">
+                    <input type="search" id="q" placeholder="Szukaj w archiwum — nr zlecenia, klient, wymiar, nadruk, tworzywo…" autocomplete="off" spellcheck="false" aria-label="Szukaj w archiwum">
+                    <button type="button" class="clear-btn" id="q-clear" title="Wyczyść (Esc)" aria-label="Wyczyść">✕</button>
+                </div>
+                <span class="search-info" id="q-info"></span>
+            </div>
             <div class="table-wrap">
                 <table>
                     <thead>
