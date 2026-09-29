@@ -59,6 +59,8 @@
                     activePage = 'zamowienia';
                 } else if (currentPath === '/plan' || currentPath.startsWith('/plan')) {
                     activePage = 'plan';
+                } else if (currentPath === '/kalkulator' || currentPath.startsWith('/kalkulator')) {
+                    activePage = 'kalkulator';
                 } else if (currentPath === '/archiwum' || currentPath.startsWith('/archiwum')) {
                     activePage = 'archiwum';
                 }
@@ -90,6 +92,7 @@
                                     crumbs = [
                                         { text: 'Zamówienia', href: '/', id: 'zamowienia' },
                                         { text: 'Plan Produkcji', href: '/plan', id: 'plan' },
+                                        { text: 'Kalkulator', href: '/kalkulator', id: 'kalkulator' },
                                         { text: 'Archiwum', href: '/archiwum', id: 'archiwum' }
                                     ];
                                 }
@@ -99,6 +102,7 @@
                                     crumbs = crumbs.filter(crumb => {
                                         if (crumb.id === 'zamowienia' && !userPermissions.viewOrders) return false;
                                         if (crumb.id === 'plan' && !userPermissions.viewPlan) return false;
+                                        if (crumb.id === 'kalkulator' && !userPermissions.viewCalculator) return false;
                                         if (crumb.id === 'archiwum' && !userPermissions.viewArchive) return false;
                                         return true;
                                     });
@@ -121,6 +125,7 @@
                         const crumbs = [
                             { text: 'Zamówienia', href: '/', id: 'zamowienia' },
                             { text: 'Plan Produkcji', href: '/plan', id: 'plan' },
+                            { text: 'Kalkulator', href: '/kalkulator', id: 'kalkulator' },
                             { text: 'Archiwum', href: '/archiwum', id: 'archiwum' }
                         ];
                         

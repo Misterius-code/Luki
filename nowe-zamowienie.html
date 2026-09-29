@@ -669,37 +669,57 @@
                 togglePakOtherField();
             }
 
-            // Auto-generate order number based on Zleceniobiorca
+            // Numer zlecenia: PREFIX/x/DD/MM, gdzie x = kolejny numer DANEGO DNIA.
+            // Numeruje serwer (/api/zamowienia/next-number), zeby wynik nie zalezal
+            // od tego, ile zamowien zdazylo sie wczytac na stronie.
             async function generateOrderNumber(zleceniobiorca) {
                 if (!zleceniobiorca) return '';
-                
+
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+
                 try {
-                    // Get all orders to count how many exist for this Zleceniobiorca
-                    const res = await fetch('/api/zamowienia?page=1&pageSize=1000');
+                    const res = await fetch('/api/zamowienia/next-number?zleceniobiorca=' + encodeURIComponent(zleceniobiorca));
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     const data = await res.json();
-                    const items = Array.isArray(data.items) ? data.items : [];
-                    
-                    // Count orders for this Zleceniobiorca
-                    const count = items.filter(item => item['Zleceniobiorca'] === zleceniobiorca).length;
-                    
-                    // Get current date
-                    const now = new Date();
-                    const day = String(now.getDate()).padStart(2, '0');
-                    const month = String(now.getMonth() + 1).padStart(2, '0');
-                    
-                    // Generate order number: Zleceniobiorca/(count+1)/DD/MM
-                    const orderNumber = `${zleceniobiorca}/${count + 1}/${day}/${month}`;
-                    
-                    return orderNumber;
+                    if (data && data.ok && data.nextNumber) return data.nextNumber;
+                    throw new Error('Brak numeru w odpowiedzi');
                 } catch (error) {
                     console.error('Error generating order number:', error);
-                    // Fallback: just use date if count fails
-                    const now = new Date();
-                    const day = String(now.getDate()).padStart(2, '0');
-                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    // Awaryjnie - bez bazy i tak nie da sie zapisac zamowienia
                     return `${zleceniobiorca}/1/${day}/${month}`;
                 }
+            }
+
+            // Po zapisie NIE wracamy do listy ogolnej - czyscimy formularz i zostajemy,
+            // zeby od razu wpisac kolejne zamowienie (numer liczy sie od nowa).
+            async function przygotujKolejneZamowienie(zleceniobiorca) {
+                form.reset();
+
+                // Panel "Dodaj ze wzoru"
+                const wzorTekst = document.getElementById('wzor-tekst');
+                const wzorInfo = document.getElementById('wzor-info');
+                if (wzorTekst) wzorTekst.value = '';
+                if (wzorInfo) wzorInfo.textContent = '';
+
+                // Pole ujawniane po zaznaczeniu "Inne" w pakowaniu
+                const pakOther = document.getElementById('pakowanie-other');
+                if (pakOther) {
+                    pakOther.value = '';
+                    pakOther.style.display = 'none';
+                }
+
+                // Zleceniobiorca zostaje ten sam -> numer jest kolejnym numerem dnia
+                if (zleceniobiorca) {
+                    const radio = document.querySelector('input[name="Zleceniobiorca"][value="' + zleceniobiorca + '"]');
+                    if (radio) radio.checked = true;
+                    const numer = await generateOrderNumber(zleceniobiorca);
+                    if (numer && numerZleceniaInput) numerZleceniaInput.value = numer;
+                }
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (wzorTekst) wzorTekst.focus();
             }
 
             // Auto-generate order number when Zleceniobiorca is selected
@@ -936,10 +956,12 @@
                     }
 
                     if (result.ok) {
-                        showToast('Zamówienie zostało zapisane pomyślnie!');
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 1500);
+                        const zapisanyNumer = data['Numer zlecenia'];
+                        showToast('Zapisano zamówienie ' + zapisanyNumer);
+                        // Zostajemy na formularzu - przygotowanie do kolejnego zamowienia
+                        await przygotujKolejneZamowienie(data['Zleceniobiorca']);
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Zapisz zamówienie';
                     } else {
                         throw new Error(result.error || 'Błąd zapisu');
                     }

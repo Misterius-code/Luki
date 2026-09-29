@@ -62,6 +62,7 @@ const ROLES = {
 			editPlan: true,
 			assignToMachines: true,
 			viewArchive: true,
+			viewCalculator: true,
 			manageUsers: true,
 			assignRoles: true,
 			viewAdmin: true
@@ -78,6 +79,7 @@ const ROLES = {
 			editPlan: true,
 			assignToMachines: true,
 			viewArchive: true,
+			viewCalculator: true,
 			manageUsers: false,
 			assignRoles: false,
 			viewAdmin: false
@@ -94,6 +96,7 @@ const ROLES = {
 			editPlan: false,
 			assignToMachines: false,
 			viewArchive: false,
+			viewCalculator: true,
 			manageUsers: false,
 			assignRoles: false,
 			viewAdmin: false
@@ -110,6 +113,7 @@ const ROLES = {
 			editPlan: false,
 			assignToMachines: false,
 			viewArchive: false,
+			viewCalculator: true,
 			manageUsers: false,
 			assignRoles: false,
 			viewAdmin: false,
@@ -127,6 +131,7 @@ const ROLES = {
 			editPlan: false,
 			assignToMachines: false,
 			viewArchive: false,
+			viewCalculator: true,
 			manageUsers: false,
 			assignRoles: false,
 			viewAdmin: false
@@ -143,6 +148,7 @@ const ROLES = {
 			editPlan: false,
 			assignToMachines: false,
 			viewArchive: false,
+			viewCalculator: true,
 			manageUsers: false,
 			assignRoles: false,
 			viewAdmin: false
@@ -571,7 +577,7 @@ const server = http.createServer((req, res) => {
 			console.log(`🔒 API ${parsed.pathname}: Unauthorized - no valid session`);
 		}
 		// Redirect to login for HTML pages
-		if (parsed.pathname.endsWith('.html') || parsed.pathname === '/' || parsed.pathname.match(/^\/(plan|karta|archiwum|nowe-zamowienie)/)) {
+		if (parsed.pathname.endsWith('.html') || parsed.pathname === '/' || parsed.pathname.match(/^\/(plan|karta|archiwum|nowe-zamowienie|kalkulator)/)) {
 			res.writeHead(302, { 'Location': '/login' });
 			res.end();
 			return;
@@ -618,6 +624,9 @@ const server = http.createServer((req, res) => {
 	}
 	if (parsed.pathname === '/karta-wyrobu' || parsed.pathname === '/karta-wyrobu/') {
 		return serveFile(res, path.join(__dirname, 'karta-wyrobu.html'), 'text/html; charset=utf-8');
+	}
+	if (parsed.pathname === '/kalkulator' || parsed.pathname === '/kalkulator/') {
+		return serveFile(res, path.join(__dirname, 'kalkulator.html'), 'text/html; charset=utf-8');
 	}
 	if (parsed.pathname === '/archiwum' || parsed.pathname === '/archiwum/') {
 		// Check if user has permission to view archive
@@ -1250,6 +1259,91 @@ const server = http.createServer((req, res) => {
 				console.error('headers error:', e);
 				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
 				res.end(JSON.stringify({ error: 'Failed to fetch headers' }));
+			}
+		})();
+		return;
+	}
+
+	// Numer kolejnego zlecenia dla danego zleceniobiorcy i dnia: PREFIX/x/DD/MM
+	// x = kolejny numer zamowienia DANEGO DNIA (numeracja restartuje sie codziennie).
+	if (parsed.pathname === '/api/zamowienia/next-number' && req.method === 'GET') {
+		(async () => {
+			try {
+				if (!db || !isDbConnected) {
+					res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Database not connected' }));
+					return;
+				}
+
+				const prefix = String(parsed.query.zleceniobiorca || '').trim();
+				if (!prefix) {
+					res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+					res.end(JSON.stringify({ ok: false, error: 'Brak parametru zleceniobiorca' }));
+					return;
+				}
+
+				// Data: opcjonalne "YYYY-MM-DD", domyslnie dzisiaj
+				const today = new Date();
+				let year = today.getFullYear();
+				let day = today.getDate();
+				let month = today.getMonth() + 1;
+				if (parsed.query.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.query.date)) {
+					year = parseInt(parsed.query.date.slice(0, 4), 10);
+					month = parseInt(parsed.query.date.slice(5, 7), 10);
+					day = parseInt(parsed.query.date.slice(8, 10), 10);
+				}
+				const dd = String(day).padStart(2, '0');
+				const mm = String(month).padStart(2, '0');
+
+				const escPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+				// Ksztalt numeru: "<prefix><spacja lub />x/DD/MM" (import z arkusza ma spacje, formularz ukośnik)
+				const re = new RegExp('^\\s*' + escPrefix + '\\s*[/\\s]\\s*(\\d+)\\s*/\\s*(\\d{1,2})\\s*/\\s*(\\d{1,2})\\s*$', 'i');
+
+				const docs = await db.collection('zamowienia')
+					.find({ 'data.Numer zlecenia': re })
+					.project({ 'data.Numer zlecenia': 1, 'data.Data zamówienia': 1 })
+					.toArray();
+
+				// Numery zajete DANEGO DNIA (numer nie zawiera roku, wiec rok bierzemy
+				// z "Data zamówienia", a gdy jej nie ma - z czasu utworzenia dokumentu)
+				const taken = new Set();
+				docs.forEach(doc => {
+					const raw = doc.data && doc.data['Numer zlecenia'];
+					if (!raw) return;
+					const m = re.exec(String(raw).trim());
+					if (!m) return;
+					if (parseInt(m[2], 10) !== day || parseInt(m[3], 10) !== month) return;
+
+					let y = 0;
+					const when = doc.data && doc.data['Data zamówienia'];
+					if (when) {
+						y = parseInt(String(when).slice(0, 4), 10);
+					} else if (doc._id && typeof doc._id.getTimestamp === 'function') {
+						y = doc._id.getTimestamp().getFullYear();
+					}
+					if (y && y !== year) return;
+
+					taken.add(parseInt(m[1], 10));
+				});
+
+				// Nastepny numer dnia = kolejny po liczbie zamowien tego dnia,
+				// pomijajac numery juz zajete (takze dziury w numeracji).
+				let next = taken.size + 1;
+				while (taken.has(next)) next++;
+
+				res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({
+					ok: true,
+					nextNumber: prefix + '/' + next + '/' + dd + '/' + mm,
+					ordersToday: taken.size,
+					takenNumbers: Array.from(taken).sort((a, b) => a - b),
+					day: dd,
+					month: mm
+				}));
+			} catch (e) {
+				console.error('next-number error:', e);
+				res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+				res.end(JSON.stringify({ ok: false, error: 'Błąd generowania numeru' }));
 			}
 		})();
 		return;

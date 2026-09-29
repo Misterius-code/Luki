@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kalkulator</title>
+    <!-- Motyw (ciemny/jasny) ustawiany od razu, zeby nie bylo migniecia zlego motywu -->
+    <script>
+        (function () {
+            var theme = 'dark';
+            try {
+                if (localStorage.getItem('theme') === 'light') theme = 'light';
+            } catch (e) {}
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    <style>
+        :root { color-scheme: dark; }
+        html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="light"] { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; background: Canvas; color: CanvasText; }
+        .container { max-width: none; width: 100%; margin: 16px 0; padding: 0 16px; }
+
+        .card { background: Canvas; color: CanvasText; border: 1px solid rgba(127,127,127,.25); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+        .calc-layout { display: grid; grid-template-columns: minmax(280px, 420px) minmax(220px, 1fr); gap: 16px; align-items: start; }
+        @media (max-width: 760px) { .calc-layout { grid-template-columns: 1fr; } }
+
+        /* Panel kalkulatora */
+        .calc-card { padding: 14px; }
+        .display {
+            border: 1px solid rgba(127,127,127,.28);
+            border-radius: 10px;
+            background: color-mix(in oklab, Canvas 96%, transparent);
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            min-height: 84px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 6px;
+            overflow: hidden;
+        }
+        .expr { font-size: 18px; line-height: 1.3; text-align: right; color: color-mix(in oklab, CanvasText 75%, transparent); word-break: break-all; min-height: 1.3em; }
+        .result { font-size: 30px; font-weight: 700; text-align: right; word-break: break-all; transition: opacity .15s ease; }
+        .result.muted { opacity: .45; font-weight: 600; }
+        .result.error { color: #f87171; font-size: 18px; }
+        .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .key {
+            appearance: none;
+            font: inherit;
+            font-size: 19px;
+            font-weight: 600;
+            padding: 14px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(127,127,127,.3);
+            background: color-mix(in oklab, Canvas 95%, transparent);
+            color: CanvasText;
+            cursor: pointer;
+            user-select: none;
+            transition: background .12s ease, transform .04s ease;
+        }
+        .key:hover { background: color-mix(in oklab, Canvas 90%, transparent); }
+        .key:active { transform: translateY(1px); }
+        .key:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+        .key.fn { background: color-mix(in oklab, CanvasText 8%, Canvas); }
+        .key.op { color: #60a5fa; }
+        .key.eq { grid-column: 1 / -1; background: #2563eb; border-color: #2563eb; color: #fff; }
+        .key.eq:hover { background: #1d4ed8; }
+
+        .hint { margin: 12px 2px 0; font-size: 12px; line-height: 1.5; color: color-mix(in oklab, CanvasText 60%, transparent); }
+
+        /* Historia */
+        .hist-card { padding: 0; overflow: hidden; }
+        .hist-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(127,127,127,.2); font-weight: 600; font-size: 14px; }
+        .hist-head button { appearance: none; font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: color-mix(in oklab, CanvasText 75%, transparent); cursor: pointer; }
+        .hist-head button:hover { background: color-mix(in oklab, CanvasText 10%, transparent); color: CanvasText; }
+        .hist-list { list-style: none; margin: 0; padding: 6px; max-height: 62vh; overflow: auto; }
+        .hist-list li { padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+        .hist-list li:hover { background: color-mix(in oklab, CanvasText 8%, transparent); }
+        .hist-list .h-expr { font-size: 13px; color: color-mix(in oklab, CanvasText 62%, transparent); word-break: break-all; }
+        .hist-list .h-res { font-size: 17px; font-weight: 700; text-align: right; word-break: break-all; }
+        .hist-empty { padding: 16px 14px; font-size: 13px; color: color-mix(in oklab, CanvasText 55%, transparent); }
+
+        /* ---------- Kalkulatory z arkusza: zakladki i panele ---------- */
+        .container { max-width: 1400px; margin: 16px auto; }
+        #calc-shell { overflow: hidden; }
+        .tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 8px 0; border-bottom: 1px solid rgba(127,127,127,.22); background: color-mix(in oklab, Canvas 97%, transparent); }
+        .tab { appearance: none; font: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0; background: transparent; color: color-mix(in oklab, CanvasText 68%, transparent); cursor: pointer; margin-bottom: -1px; }
+        .tab:hover { color: CanvasText; background: color-mix(in oklab, CanvasText 7%, transparent); }
+        .tab.active { color: CanvasText; background: Canvas; border-color: rgba(127,127,127,.25); border-bottom: 1px solid Canvas; }
+        .tab:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .panel-head { padding: 16px 18px 0; }
+        .panel-head h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+        .panel-head p { margin: 0; font-size: 13px; color: color-mix(in oklab, CanvasText 62%, transparent); }
+
+        .panel-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px; padding: 16px 18px 14px; align-items: start; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        .field-label { font-size: 12px; font-weight: 600; color: color-mix(in oklab, CanvasText 70%, transparent); }
+        .field-label em { font-style: normal; font-weight: 500; color: color-mix(in oklab, CanvasText 50%, transparent); }
+        .field input { font: inherit; font-size: 16px; font-weight: 600; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 96%, transparent); color: CanvasText; width: 100%; outline: none; }
+        .field input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px color-mix(in oklab, #60a5fa 22%, transparent); }
+        .field input.invalid { border-color: #f87171; box-shadow: 0 0 0 3px color-mix(in oklab, #f87171 20%, transparent); }
+
+        .result-box { border: 1px solid rgba(127,127,127,.28); border-radius: 12px; background: color-mix(in oklab, Canvas 96%, transparent); padding: 16px; }
+        .result-label { font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: color-mix(in oklab, CanvasText 60%, transparent); }
+        .result-value { margin: 6px 0 12px; font-size: 38px; font-weight: 800; line-height: 1.1; word-break: break-all; }
+        .result-value.dash { color: color-mix(in oklab, CanvasText 40%, transparent); }
+        .result-actions { display: flex; gap: 8px; }
+        .btn { appearance: none; font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 9px; cursor: pointer; border: 1px solid rgba(127,127,127,.35); background: color-mix(in oklab, Canvas 95%, transparent); color: CanvasText; }
+        .btn:hover { background: color-mix(in oklab, CanvasText 8%, transparent); }
+
+        .formula { padding: 0 18px 16px; font-size: 12px; color: color-mix(in oklab, CanvasText 62%, transparent); }
+        .formula code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; background: color-mix(in oklab, CanvasText 8%, transparent); padding: 3px 7px; border-radius: 6px; }
+        .formula .flabel { font-weight: 700; color: color-mix(in oklab, CanvasText 70%, transparent); }
+
+        /* Wyglad zakladki "Prosty" wewnatrz glownej karty */
+        #calc-shell .calc-layout { padding-bottom: 8px; }
+        #calc-shell .calc-layout .card { box-shadow: none; }
+
+        @media (max-width: 900px) {
+            .panel-body { grid-template-columns: 1fr; }
+        }
+    </style>
+    <link rel="stylesheet" href="/header.css">
+    <script src="/header.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="header-container"
+             data-title="Kalkulator">
+        </div>
+
+        <div class="card" id="calc-shell">
+            <div class="tabs" id="tabs" role="tablist"></div>
+            <div id="panels">
+                <section class="panel" data-panel="prosty">
+                    <div class="panel-head">
+                        <h2>Prosty kalkulator</h2>
+                        <p>Szybkie działania arytmetyczne z historią.</p>
+                    </div>
+                    <div class="calc-layout">
+                        <div class="card calc-card">
+                            <div class="display">
+                                <div class="expr" id="expr" aria-live="off"></div>
+                                <div class="result" id="result">0</div>
+                            </div>
+
+                            <div class="keys" id="keys">
+                                <button type="button" class="key fn" data-act="clear" title="Wyczyść (Esc)">C</button>
+                                <button type="button" class="key fn" data-val="(">(</button>
+                                <button type="button" class="key fn" data-val=")">)</button>
+                                <button type="button" class="key fn" data-act="back" title="Usuń ostatni znak (Backspace)">⌫</button>
+
+                                <button type="button" class="key" data-val="7">7</button>
+                                <button type="button" class="key" data-val="8">8</button>
+                                <button type="button" class="key" data-val="9">9</button>
+                                <button type="button" class="key op" data-val="÷">÷</button>
+
+                                <button type="button" class="key" data-val="4">4</button>
+                                <button type="button" class="key" data-val="5">5</button>
+                                <button type="button" class="key" data-val="6">6</button>
+                                <button type="button" class="key op" data-val="×">×</button>
+
+                                <button type="button" class="key" data-val="1">1</button>
+                                <button type="button" class="key" data-val="2">2</button>
+                                <button type="button" class="key" data-val="3">3</button>
+                                <button type="button" class="key op" data-val="−">−</button>
+
+                                <button type="button" class="key" data-val="0">0</button>
+                                <button type="button" class="key" data-val=".">.</button>
+                                <button type="button" class="key op" data-val="%" title="Procent">%</button>
+                                <button type="button" class="key op" data-val="+">+</button>
+
+                                <button type="button" class="key eq" data-act="equals" title="Wynik (Enter)">=</button>
+                            </div>
+
+                            <div class="hint">
+                                Skróty klawiaturowe: cyfry, <b>+ − * /</b>, <b>%</b>, <b>( )</b>, <b>Enter</b> = wynik, <b>Backspace</b> = usuń, <b>Esc</b> = wyczyść.
+                                Procent działa jak w kalkulatorze: <b>200 + 10%</b> = 220, <b>200 × 10%</b> = 20.
+                            </div>
+                        </div>
+
+                        <div class="card hist-card">
+                            <div class="hist-head">
+                                <span>Historia</span>
+                                <button type="button" id="hist-clear">Wyczyść</button>
+                            </div>
+                            <ul class="hist-list" id="hist-list"></ul>
+                            <div class="hist-empty" id="hist-empty">Brak obliczeń.</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        /* =========================================================
+           Kalkulatory z pliku Kalkulator.xlsx (gotowe wzory)
+           ========================================================= */
+        var CALCS = [
+            {
+                id: 'tysiac',
+                tab: 'Na 1000 szt',
+                title: 'Kalkulator na 1000 szt',
+                desc: 'Wymiary i grubość podawane w milimetrach.',
+                resultLabel: 'Wynik na 1000 szt',
+                formula: '(Szer × (Wys + Fałda + Zrywka/2) × Grubość × Rękaw × Przelicznik × Ciężar) ÷ 1000²',
+                fields: [
+                    { key: 'szer',        label: 'Szerokość',       unit: 'mm',    def: 235 },
+                    { key: 'wys',         label: 'Wysokość',        unit: 'mm',    def: 370 },
+                    { key: 'falda',       label: 'Fałda',           unit: 'mm',    def: 30 },
+                    { key: 'zrywka',      label: 'Zrywka',          unit: 'mm',    def: 40 },
+                    { key: 'grubosc',     label: 'Grubość',         unit: 'mm',    def: 0.025 },
+                    { key: 'rekaw',       label: 'Rękaw / Taśma',   unit: '×',     def: 2 },
+                    { key: 'ciezar',      label: 'Ciężar właściwy', unit: 'kg/m³', def: 920 },
+                    { key: 'przelicznik', label: 'Przelicznik',     unit: '',      def: 17.4 }
+                ],
+                calc: function (v) {
+                    return (v.szer * (v.wys + v.falda + (v.zrywka / 2)) * v.grubosc * v.rekaw * v.przelicznik * v.ciezar) / (1000 * 1000);
+                }
+            },
+            {
+                id: 'worek',
+                tab: 'Na worek / mb',
+                title: 'Kalkulator na worek / mb',
+                desc: 'Cena za sztukę lub metr bieżący.',
+                resultLabel: 'Cena szt / mb',
+                formula: '(Szer × Wys × Grubość × Rękaw × Ciężar × Przelicznik) ÷ (1000 × 1000 × 1000)',
+                fields: [
+                    { key: 'szer',        label: 'Szerokość',       unit: 'mm',    def: 600 },
+                    { key: 'wys',         label: 'Wysokość',        unit: 'mm',    def: 800 },
+                    { key: 'grubosc',     label: 'Grubość',         unit: 'mm',    def: 0.025 },
+                    { key: 'rekaw',       label: 'Rękaw / Taśma',   unit: '×',     def: 2 },
+                    { key: 'ciezar',      label: 'Ciężar właściwy', unit: 'kg/m³', def: 950 },
+                    { key: 'przelicznik', label: 'Przelicznik',     unit: '',      def: 12.5 }
+                ],
+                calc: function (v) {
+                    return (v.szer * v.wys * v.grubosc * v.rekaw * v.ciezar * v.przelicznik) / (1000 * 1000 * 1000);
+                }
+            },
+            {
+                id: 'przelicznik',
+                tab: 'Na przelicznik',
+                title: 'Kalkulator na przelicznik',
+                desc: 'Wylicza przelicznik na podstawie ceny za 1000 szt.',
+                resultLabel: 'Wynik = Przelicznik',
+                formula: 'Cena ÷ (Szer × (Wys + Fałda + Zrywka/2) × Grubość × Rękaw × Ciężar) × 1000²',
+                fields: [
+                    { key: 'cena',    label: 'Cena / 1000 szt',  unit: 'zł',    def: 53.19 },
+                    { key: 'szer',    label: 'Szerokość',        unit: 'mm',    def: 220 },
+                    { key: 'wys',     label: 'Wysokość',         unit: 'mm',    def: 350 },
+                    { key: 'falda',   label: 'Fałda',            unit: 'mm',    def: 0 },
+                    { key: 'zrywka',  label: 'Zrywka',           unit: 'mm',    def: 0 },
+                    { key: 'grubosc', label: 'Grubość',          unit: 'mm',    def: 0.025 },
+                    { key: 'rekaw',   label: 'Rękaw / Taśma',    unit: '×',     def: 2 },
+                    { key: 'ciezar',  label: 'Ciężar właściwy',  unit: 'kg/m³', def: 920 }
+                ],
+                calc: function (v) {
+                    return v.cena / (v.szer * (v.wys + v.falda + (v.zrywka / 2)) * v.grubosc * v.rekaw * v.ciezar) * 1000 * 1000;
+                }
+            },
+            {
+                id: 'kg',
+                tab: 'Na kg',
+                title: 'Kalkulator na kg',
+                desc: 'Waga (kg) dla podanej ilości sztuk.',
+                resultLabel: 'Wynik kg',
+                formula: '(Szer/1000) × ((Wys + Dupka + Zrywka/2)/1000) × (Grubość/1000) × Rękaw × Ciężar × Ilość',
+                fields: [
+                    { key: 'szer',    label: 'Szerokość',       unit: 'mm',    def: 500 },
+                    { key: 'wys',     label: 'Wysokość',        unit: 'mm',    def: 750 },
+                    { key: 'grubosc', label: 'Grubość',         unit: 'mm',    def: 0.08 },
+                    { key: 'rekaw',   label: 'Rękaw / Taśma',   unit: '×',     def: 2 },
+                    { key: 'ciezar',  label: 'Ciężar właściwy', unit: 'kg/m³', def: 950 },
+                    { key: 'dupka',   label: 'Dupka',           unit: 'mm',    def: 0 },
+                    { key: 'zrywka',  label: 'Zrywka',          unit: 'mm',    def: 0 },
+                    { key: 'ilosc',   label: 'Ilość',           unit: 'szt',   def: 5000 }
+                ],
+                calc: function (v) {
+                    return (v.szer / 1000) * ((v.wys / 1000) + (v.dupka / 1000) + (v.zrywka / 2000)) * (v.grubosc / 1000) * v.rekaw * v.ciezar * v.ilosc;
+                }
+            }
+        ];
+
+        var SAVED_KEY = 'kalkulator-inputs-v1';
+        var savedInputs = (function () {
+            try {
+                var raw = localStorage.getItem(SAVED_KEY);
+                var o = raw ? JSON.parse(raw) : {};
+                return (o && typeof o === 'object') ? o : {};
+            } catch (e) { return {}; }
+        })();
+
+        function saveInputs() {
+            try { localStorage.setItem(SAVED_KEY, JSON.stringify(savedInputs)); } catch (e) {}
+        }
+
+        function parseNum(str) {
+            if (str == null) return NaN;
+            var s = String(str).trim().replace(/\s+/g, '').replace(',', '.');
+            if (s === '') return NaN;
+            var n = Number(s);
+            return isFinite(n) ? n : NaN;
+        }
+
+        function makeEl(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text != null) e.textContent = text;
+            return e;
+        }
+
+        var TABS = document.getElementById('tabs');
+        var PANELS = document.getElementById('panels');
+        var TAB_IDS = [];
+        var CONTROLLERS = {};
+
+        function activateTab(id) {
+            if (TAB_IDS.indexOf(id) === -1) id = TAB_IDS[0];
+            Array.prototype.forEach.call(TABS.querySelectorAll('.tab'), function (t) {
+                t.classList.toggle('active', t.dataset.tab === id);
+            });
+            Array.prototype.forEach.call(PANELS.querySelectorAll('.panel'), function (p) {
+                p.classList.toggle('active', p.dataset.panel === id);
+            });
+            if (CONTROLLERS[id]) CONTROLLERS[id]();
+            try { localStorage.setItem('kalkulator-tab', id); } catch (e) {}
+        }
+
+        function addTab(id, label) {
+            TAB_IDS.push(id);
+            var tab = makeEl('button', 'tab', label);
+            tab.type = 'button';
+            tab.setAttribute('role', 'tab');
+            tab.dataset.tab = id;
+            TABS.appendChild(tab);
+        }
+
+        function copyResult(text, btn) {
+            var done = function () {
+                if (!btn) return;
+                var old = btn.textContent;
+                btn.textContent = 'Skopiowano!';
+                setTimeout(function () { btn.textContent = old; }, 1200);
+            };
+            var fallback = function (t) {
+                var ta = document.createElement('textarea');
+                ta.value = t;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                document.body.removeChild(ta);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+            } else { fallback(text); done(); }
+        }
+
+        CALCS.forEach(function (c) {
+            addTab(c.id, c.tab);
+
+            var panel = makeEl('section', 'panel');
+            panel.dataset.panel = c.id;
+
+            var head = makeEl('div', 'panel-head');
+            head.appendChild(makeEl('h2', null, c.title));
+            head.appendChild(makeEl('p', null, c.desc));
+            panel.appendChild(head);
+
+            var body = makeEl('div', 'panel-body');
+            var grid = makeEl('div', 'form-grid');
+            var inputs = {};
+            var store = savedInputs[c.id] || {};
+
+            c.fields.forEach(function (f) {
+                var wrap = makeEl('label', 'field');
+                var lab = makeEl('span', 'field-label');
+                lab.innerHTML = f.label + (f.unit ? ' <em>[' + f.unit + ']</em>' : '');
+                var inp = document.createElement('input');
+                inp.type = 'text';
+                inp.setAttribute('inputmode', 'decimal');
+                inp.setAttribute('autocomplete', 'off');
+                inp.dataset.key = f.key;
+                inp.value = (store[f.key] != null && store[f.key] !== '') ? store[f.key] : String(f.def);
+                wrap.appendChild(lab);
+                wrap.appendChild(inp);
+                grid.appendChild(wrap);
+                inputs[f.key] = inp;
+            });
+
+            body.appendChild(grid);
+
+            var box = makeEl('aside', 'result-box');
+            box.appendChild(makeEl('div', 'result-label', c.resultLabel));
+            var resVal = makeEl('div', 'result-value dash', '—');
+            box.appendChild(resVal);
+
+            var actions = makeEl('div', 'result-actions');
+            var copyBtn = makeEl('button', 'btn', 'Kopiuj');
+            copyBtn.type = 'button';
+            var resetBtn = makeEl('button', 'btn', 'Reset');
+            resetBtn.type = 'button';
+            actions.appendChild(copyBtn);
+            actions.appendChild(resetBtn);
+            box.appendChild(actions);
+            body.appendChild(box);
+            panel.appendChild(body);
+
+            var fml = makeEl('div', 'formula');
+            fml.appendChild(makeEl('span', 'flabel', 'Wzór: '));
+            var code = document.createElement('code');
+            code.textContent = c.formula;
+            fml.appendChild(code);
+            panel.appendChild(fml);
+
+            PANELS.appendChild(panel);
+
+            function recalc() {
+                var values = {};
+                var bad = false;
+                c.fields.forEach(function (f) {
+                    var n = parseNum(inputs[f.key].value);
+                    inputs[f.key].classList.toggle('invalid', !isFinite(n));
+                    if (!isFinite(n)) bad = true;
+                    values[f.key] = n;
+                });
+
+                if (!bad) {
+                    try {
+                        var out = c.calc(values);
+                        if (isFinite(out)) resVal.dataset.value = String(Number(out.toPrecision(10)));
+                        else bad = true;
+                    } catch (e) { bad = true; }
+                }
+
+                if (bad) {
+                    resVal.textContent = '—';
+                    resVal.classList.add('dash');
+                    delete resVal.dataset.value;
+                    resVal.title = 'Uzupełnij wszystkie pola liczbami (grubość nie może być zerem)';
+                    return;
+                }
+
+                resVal.textContent = formatNumber(Number(resVal.dataset.value));
+                resVal.classList.remove('dash');
+                resVal.title = 'Dokładna wartość: ' + resVal.dataset.value;
+
+                if (!savedInputs[c.id]) savedInputs[c.id] = {};
+                c.fields.forEach(function (f) { savedInputs[c.id][f.key] = inputs[f.key].value; });
+                saveInputs();
+            }
+
+            c.fields.forEach(function (f) {
+                inputs[f.key].addEventListener('input', recalc);
+                inputs[f.key].addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); inputs[f.key].blur(); }
+                });
+            });
+
+            resetBtn.addEventListener('click', function () {
+                c.fields.forEach(function (f) { inputs[f.key].value = String(f.def); });
+                recalc();
+            });
+
+            copyBtn.addEventListener('click', function () {
+                copyResult(resVal.dataset.value || resVal.textContent, copyBtn);
+            });
+
+            CONTROLLERS[c.id] = recalc;
+        });
+
+        // Zakladka "Prosty" - panel jest juz w HTML
+        addTab('prosty', 'Prosty');
+        CONTROLLERS['prosty'] = function () {};
+
+        TABS.addEventListener('click', function (e) {
+            var t = e.target && e.target.closest ? e.target.closest('.tab') : null;
+            if (t) activateTab(t.dataset.tab);
+        });
+
+        TABS.addEventListener('keydown', function (e) {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            var cur = (document.activeElement && document.activeElement.dataset) ? document.activeElement.dataset.tab : null;
+            var i = TAB_IDS.indexOf(cur);
+            if (i === -1) return;
+            i = (e.key === 'ArrowRight') ? (i + 1) : (i - 1);
+            i = (i + TAB_IDS.length) % TAB_IDS.length;
+            activateTab(TAB_IDS[i]);
+            var nt = TABS.querySelector('.tab.active');
+            if (nt) nt.focus();
+            e.preventDefault();
+        });
+
+        var startTab = null;
+        try { startTab = localStorage.getItem('kalkulator-tab'); } catch (e) {}
+
+        var exprEl = document.getElementById('expr');
+        var resultEl = document.getElementById('result');
+        var keysEl = document.getElementById('keys');
+        var histList = document.getElementById('hist-list');
+        var histEmpty = document.getElementById('hist-empty');
+        var histClear = document.getElementById('hist-clear');
+
+        var OPS = '+-×÷';          // operatory binarne (widok)
+        var expr = '';
+        var justEvaluated = false;
+        var lastValid = '';
+        var lastError = '';
+        var history = [];
+
+        // ---------- Formatowanie i obliczanie ----------
+
+        function formatNumber(n) {
+            if (!isFinite(n)) return '';
+            if (Object.is(n, -0)) n = 0;
+            if (Number.isInteger(n) && Math.abs(n) < 1e15) return String(n);
+            var s = n.toPrecision(12);
+            if (s.indexOf('e') !== -1 || s.indexOf('E') !== -1) return String(n);
+            s = s.replace(/0+$/, '').replace(/\.$/, '');
+            return s;
+        }
+
+        function tokenize(src) {
+            var tokens = [];
+            var i = 0;
+            while (i < src.length) {
+                var ch = src[i];
+                if (ch === ' ' || ch === '\t') { i++; continue; }
+                if ((ch >= '0' && ch <= '9') || ch === '.') {
+                    var num = '';
+                    var dots = 0;
+                    while (i < src.length && ((src[i] >= '0' && src[i] <= '9') || src[i] === '.')) {
+                        if (src[i] === '.') { dots++; if (dots > 1) throw new Error('Błędna liczba'); }
+                        num += src[i];
+                        i++;
+                    }
+                    tokens.push({ type: 'num', value: parseFloat(num) });
+                    continue;
+                }
+                if (ch === '+' || ch === '-' || ch === '*' || ch === '/' || ch === '%' || ch === '(' || ch === ')') {
+                    tokens.push({ type: ch });
+                    i++;
+                    continue;
+                }
+                throw new Error('Nieznany znak');
+            }
+            return tokens;
+        }
+
+        // Rekurencyjny parser z obsluga nawiasow i procentu.
+        // parseFactor zwraca { value (juz z uwzglednionym %), pctCount }.
+        function makeParser(tokens) {
+            var pos = 0;
+            function peek() { return tokens[pos]; }
+            function next() { return tokens[pos++]; }
+
+            function parseExpr() {
+                var t = parseTerm();
+                var left = t.value;
+                while (peek() && (peek().type === '+' || peek().type === '-')) {
+                    var op = next().type;
+                    var r = parseTerm();
+                    if (r.pctCount > 0) {
+                        // np. 200 + 10%  ->  200 + 200 * 0.1
+                        var rel = left * r.value;
+                        left = (op === '+') ? left + rel : left - rel;
+                    } else {
+                        left = (op === '+') ? left + r.value : left - r.value;
+                    }
+                }
+                return { value: left, pctCount: 0 };
+            }
+
+            function parseTerm() {
+                var f = parseFactor();
+                var value = f.value;
+                var simplePct = f.pctCount;
+                var simple = true;
+                while (peek() && (peek().type === '*' || peek().type === '/')) {
+                    var op = next().type;
+                    var g = parseFactor();
+                    if (op === '*') { value = value * g.value; }
+                    else {
+                        if (g.value === 0) throw new Error('Dzielenie przez zero');
+                        value = value / g.value;
+                    }
+                    simple = false;
+                }
+                return { value: value, pctCount: simple ? simplePct : 0 };
+            }
+
+            function parseFactor() {
+                var t = peek();
+                if (!t) throw new Error('Niepełne wyrażenie');
+
+                if (t.type === '+' || t.type === '-') {
+                    next();
+                    var f = parseFactor();
+                    return { value: (t.type === '-') ? -f.value : f.value, pctCount: 0 };
+                }
+
+                if (t.type === 'num') {
+                    next();
+                    var pct = 0;
+                    while (peek() && peek().type === '%') { next(); pct++; }
+                    return { value: t.value / Math.pow(100, pct), pctCount: pct };
+                }
+
+                if (t.type === '(') {
+                    next();
+                    var e = parseExpr();
+                    if (!peek() || peek().type !== ')') throw new Error('Brak nawiasu zamykającego');
+                    next();
+                    var pct2 = 0;
+                    while (peek() && peek().type === '%') { next(); pct2++; }
+                    return { value: e.value / Math.pow(100, pct2), pctCount: pct2 };
+                }
+
+                throw new Error('Błąd składni');
+            }
+
+            return {
+                parse: function () {
+                    if (tokens.length === 0) throw new Error('Puste wyrażenie');
+                    var res = parseExpr();
+                    if (pos !== tokens.length) throw new Error('Błąd składni');
+                    return res.value;
+                }
+            };
+        }
+
+        function evaluate(src) {
+            var s = src.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
+            var tokens = tokenize(s);
+            var value = makeParser(tokens).parse();
+            if (!isFinite(value)) throw new Error('Wynik poza zakresem');
+            return value;
+        }
+
+        // ---------- Widok ----------
+
+        function render() {
+            exprEl.textContent = expr;
+            if (lastError) {
+                resultEl.textContent = lastError;
+                resultEl.classList.remove('muted');
+                resultEl.classList.add('error');
+                return;
+            }
+            resultEl.classList.remove('error');
+            var formatted = '';
+            if (expr.trim() === '') {
+                formatted = '0';
+                resultEl.classList.add('muted');
+            } else {
+                try {
+                    formatted = formatNumber(evaluate(expr));
+                    lastValid = formatted;
+                    resultEl.classList.remove('muted');
+                } catch (e) {
+                    formatted = lastValid || '';
+                    resultEl.classList.add('muted');
+                }
+            }
+            resultEl.textContent = formatted;
+        }
+
+        function append(val) {
+            lastError = '';
+            if (justEvaluated) {
+                if ('0123456789.('.indexOf(val) !== -1) { expr = ''; }
+                justEvaluated = false;
+            }
+
+            var last = expr.slice(-1);
+
+            if (val === '%') {
+                if (expr === '' || (!/[0-9)]/.test(last))) return;
+                expr += '%';
+                render();
+                return;
+            }
+
+            if (OPS.indexOf(val) !== -1) {
+                if (expr === '') {
+                    if (val !== '−') return;      // na start tylko minus
+                } else if (OPS.indexOf(last) !== -1) {
+                    expr = expr.slice(0, -1) + val; // podmien operator
+                    render();
+                    return;
+                } else if (last === '(') {
+                    if (val !== '−') return;
+                }
+                expr += val;
+                render();
+                return;
+            }
+
+            if (val === '.') {
+                var m = expr.match(/[0-9.]*$/);
+                if (m && m[0].indexOf('.') !== -1) return;
+                if (!m || m[0] === '') expr += '0';
+            }
+
+            if (val === ')') {
+                var open = (expr.match(/\(/g) || []).length;
+                var close = (expr.match(/\)/g) || []).length;
+                if (open <= close) return;
+                if (expr === '' || /[+\-×÷(]/.test(last)) return;
+            }
+
+            if (val === '(') {
+                if (/[0-9.)]/.test(last)) return; // nie doklejaj nawiasu po liczbie
+            }
+
+            expr += val;
+            render();
+        }
+
+        function clearAll() {
+            expr = '';
+            lastValid = '';
+            lastError = '';
+            justEvaluated = false;
+            render();
+        }
+
+        function backspace() {
+            lastError = '';
+            justEvaluated = false;
+            expr = expr.slice(0, -1);
+            render();
+        }
+
+        function equals() {
+            if (expr.trim() === '') return;
+            try {
+                var value = evaluate(expr);
+                var formatted = formatNumber(value);
+                addHistory(expr, formatted);
+                expr = formatted;
+                lastValid = formatted;
+                lastError = '';
+                justEvaluated = true;
+                render();
+            } catch (e) {
+                lastError = e.message === 'Dzielenie przez zero' ? 'Dzielenie przez zero' : 'Błąd wyrażenia';
+                render();
+                // po chwili przywroc normalny widok
+                setTimeout(function () { lastError = ''; render(); }, 1600);
+            }
+        }
+
+        // ---------- Historia ----------
+
+        function loadHistory() {
+            try {
+                var raw = localStorage.getItem('kalkulator-history');
+                var arr = raw ? JSON.parse(raw) : [];
+                if (Array.isArray(arr)) history = arr.slice(0, 60);
+            } catch (e) { history = []; }
+        }
+
+        function saveHistory() {
+            try { localStorage.setItem('kalkulator-history', JSON.stringify(history.slice(0, 60))); } catch (e) {}
+        }
+
+        function renderHistory() {
+            histList.innerHTML = '';
+            histEmpty.style.display = history.length ? 'none' : 'block';
+            history.forEach(function (item) {
+                var li = document.createElement('li');
+                li.title = 'Kliknij, aby wstawić wynik';
+                var ex = document.createElement('div');
+                ex.className = 'h-expr';
+                ex.textContent = item.expr;
+                var res = document.createElement('div');
+                res.className = 'h-res';
+                res.textContent = item.result;
+                li.appendChild(ex);
+                li.appendChild(res);
+                li.addEventListener('click', function () {
+                    lastError = '';
+                    if (justEvaluated || expr === '') { expr = ''; }
+                    expr += item.result;
+                    justEvaluated = false;
+                    render();
+                });
+                histList.appendChild(li);
+            });
+        }
+
+        function addHistory(e, r) {
+            if (history.length && history[0].expr === e && history[0].result === r) { return; }
+            history.unshift({ expr: e, result: r });
+            if (history.length > 60) history.pop();
+            saveHistory();
+            renderHistory();
+        }
+
+        // ---------- Zdarzenia ----------
+
+        keysEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('button[data-val], button[data-act]');
+            if (!btn) return;
+            if (btn.dataset.act === 'clear') return clearAll();
+            if (btn.dataset.act === 'back') return backspace();
+            if (btn.dataset.act === 'equals') return equals();
+            append(btn.dataset.val);
+        });
+
+        histClear.addEventListener('click', function () {
+            history = [];
+            saveHistory();
+            renderHistory();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            var simplePanel = document.querySelector('.panel[data-panel="prosty"]');
+            if (simplePanel && !simplePanel.classList.contains('active')) return;
+            var k = e.key;
+            if (k >= '0' && k <= '9') { append(k); e.preventDefault(); return; }
+            if (k === '.' || k === ',') { append('.'); e.preventDefault(); return; }
+            if (k === '+') { append('+'); e.preventDefault(); return; }
+            if (k === '-') { append('−'); e.preventDefault(); return; }
+            if (k === '*') { append('×'); e.preventDefault(); return; }
+            if (k === '/') { append('÷'); e.preventDefault(); return; }
+            if (k === '%') { append('%'); e.preventDefault(); return; }
+            if (k === '(' || k === ')') { append(k); e.preventDefault(); return; }
+            if (k === 'Enter' || k === '=') { equals(); e.preventDefault(); return; }
+            if (k === 'Backspace') { backspace(); e.preventDefault(); return; }
+            if (k === 'Escape' || k === 'Delete') { clearAll(); e.preventDefault(); return; }
+        });
+
+        loadHistory();
+        renderHistory();
+        render();
+        activateTab(startTab);
+    })();
+    </script>
+</body>
+</html>
